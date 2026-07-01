@@ -250,6 +250,11 @@ class CityPanel:
             return
         self.display.set_index_letter(index)
 
+    def set_display_symbol_index(self, index: int):
+        if self.display is None:
+            return
+        self.display.set_index_symbol(index)
+
     def set_display2_char(self, char: str):
         if self.display2 is None:
             return
@@ -261,10 +266,16 @@ class CityPanel:
         self.display2.set_index_letter(index)
 
     def set_encoder_display(self, encoder_name: str, index: int):
-        # All three medic_code encoders share display1: whichever one moved
-        # last shows its letter for 2 seconds, then display1 auto-clears.
-        if encoder_name in ("medic_code_1", "medic_code_2", "medic_code_3"):
-            self.set_display_letter_index(index)
+        # All medic_code encoders share display1: whichever one moved last
+        # shows its value for 2 seconds, then display1 auto-clears.
+        #   medic_code_1 -> symbol (10 custom glyphs)
+        #   medic_code_2 -> digit 0..9
+        #   medic_code_3 -> symbol (10 custom glyphs)
+        if encoder_name == "medic_code_2":
+            self.set_display_char(str(index % 10))
+            self._display1_clear_at = time.monotonic() + 2.0
+        elif encoder_name in ("medic_code_1", "medic_code_3"):
+            self.set_display_symbol_index(index)
             self._display1_clear_at = time.monotonic() + 2.0
 
     def set_display7seg_text(self, text: str):

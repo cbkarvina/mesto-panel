@@ -41,6 +41,7 @@ class GameEngine:
         self.encoder_positions = {
             "medic_code_1": 0,
             "medic_code_2": 0,
+            "medic_code_3": 0,
         }
 
         self.pending_events.append(EngineEvent(
@@ -50,6 +51,10 @@ class GameEngine:
         self.pending_events.append(EngineEvent(
             "encoder_letter",
             {"encoder": "medic_code_2", "index": 0}
+        ))
+        self.pending_events.append(EngineEvent(
+            "encoder_letter",
+            {"encoder": "medic_code_3", "index": 0}
         ))
 
     def handle_panel_event(self, name: str, event_type: str, is_active: bool):
@@ -79,6 +84,9 @@ class GameEngine:
 
         elif name == "medic_code_2" and event_type in ("rotated_cw", "rotated_ccw"):
             self._rotate_encoder("medic_code_2", event_type)
+
+        elif name == "medic_code_3" and event_type in ("rotated_cw", "rotated_ccw"):
+            self._rotate_encoder("medic_code_3", event_type)
 
         elif name in ("fire", "medical", "police") and event_type == "pressed":
             self._handle_rescue_button(name)
@@ -175,10 +183,11 @@ class GameEngine:
         ))
 
         l1 = self._encoder_letter("medic_code_1")
-        l2 = self._encoder_letter("medic_code_2")
+        d2 = self.encoder_positions["medic_code_2"] % 10
+        l3 = self._encoder_letter("medic_code_3")
         self.pending_events.append(EngineEvent(
             "message",
-            {"text": f"Medic code: [{l1}] [{l2}]"}
+            {"text": f"Medic code: [{l1}] [{d2}] [{l3}]"}
         ))
 
     def _handle_medical_call(self):
