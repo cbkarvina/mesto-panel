@@ -272,12 +272,15 @@ class CityPanel:
         #   medic_code_2 -> digit 0..9
         #   medic_code_3 -> symbol (10 custom glyphs)
         if encoder_name == "medic_code_1":
+            print(f"DISPLAY: {encoder_name} -> letter {chr(ord('A') + index % 10)}")
             self.set_display_letter_index(index)
             self._display1_clear_at = time.monotonic() + 2.0
         elif encoder_name == "medic_code_2":
+            print(f"DISPLAY: {encoder_name} -> digit {index % 10}")
             self.set_display_char(str(index % 10))
             self._display1_clear_at = time.monotonic() + 2.0
         elif encoder_name == "medic_code_3":
+            print(f"DISPLAY: {encoder_name} -> symbol #{index % 10}")
             self.set_display_symbol_index(index)
             self._display1_clear_at = time.monotonic() + 2.0
 
