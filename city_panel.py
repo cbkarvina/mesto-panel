@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import time
 from typing import Callable, Optional
 
 from mcp23017 import MCP23017, MCP23017Error
@@ -39,6 +40,8 @@ class CityPanel:
             "medic_code_1": 0,
             "medic_code_2": 0,
         }
+        # When set, display1 is cleared once time.monotonic() reaches this value.
+        self._display1_clear_at: Optional[float] = None
         self._event_callback: Optional[Callable[[InputEvent], None]] = None
 
         # ---------------------------
@@ -108,32 +111,33 @@ class CityPanel:
     def _setup_inputs(self):
         # ===== MCP1 =====
         # POWER
-        self.inputs.add_switch("power_hydro", self.mcp1, 0)
-        self.inputs.add_switch("power_solar", self.mcp1, 1)
-        self.inputs.add_switch("power_diesel", self.mcp1, 2)
-        self.inputs.add_switch("power_grid", self.mcp1, 3)
-        self.inputs.add_button("power_stabilize", self.mcp1, 4)
+        # self.inputs.add_switch("power_hydro", self.mcp1, 0)
+        # self.inputs.add_switch("power_solar", self.mcp1, 1)
+        # self.inputs.add_switch("power_diesel", self.mcp1, 2)
+        # self.inputs.add_switch("power_grid", self.mcp1, 3)
+        # self.inputs.add_button("power_stabilize", self.mcp1, 4)
 
-        # RESCUE
-        self.inputs.add_button("fire", self.mcp1, 5)
-        self.inputs.add_button("medical", self.mcp1, 6)
-        self.inputs.add_button("police", self.mcp1, 7)
+        # # RESCUE
+        # self.inputs.add_button("fire", self.mcp1, 5)
+        # self.inputs.add_button("medical", self.mcp1, 6)
+        # self.inputs.add_button("police", self.mcp1, 7)
 
-        # COMMS
-        self.inputs.add_button("comms_send", self.mcp1, 8)
-        self.inputs.add_button("comms_decode", self.mcp1, 9)
-        self.inputs.add_button("comms_ack", self.mcp1, 10)
+        # # COMMS
+        # self.inputs.add_button("comms_send", self.mcp1, 8)
+        # self.inputs.add_button("comms_decode", self.mcp1, 9)
+        # self.inputs.add_button("comms_ack", self.mcp1, 10)
 
         # TRANSPORT
         # self.inputs.add_switch("transport_route_1", self.mcp1, 11)
         # self.inputs.add_switch("transport_route_2", self.mcp1, 12)
         # self.inputs.add_switch("transport_route_3", self.mcp1, 13)
         # self.inputs.add_button("transport_reset", self.mcp1, 14)
-        self.inputs.add_encoder("medic_code_1", self.mcp1, pin_a=11, pin_b=12)
-        self.inputs.add_encoder("medic_code_2", self.mcp1, pin_a=13, pin_b=14)
+        self.inputs.add_encoder("medic_code_1", self.mcp1, pin_a=7, pin_b=8)
+        self.inputs.add_encoder("medic_code_2", self.mcp1, pin_a=6, pin_b=5)
+        self.inputs.add_encoder("medic_code_3", self.mcp1, pin_a=4, pin_b=3)
 
         # CORE
-        self.inputs.add_button("core_activate", self.mcp1, 15)
+        self.inputs.add_button("core_activate", self.mcp1, 2)
 
         # ===== MCP2 (optional): two EC11 encoders for medic code =====
         # if self.mcp2 is not None:
@@ -161,6 +165,13 @@ class CityPanel:
             self.inputs.update()
         if self.leds is not None:
             self.leds.update()
+        if (
+            self._display1_clear_at is not None
+            and time.monotonic() >= self._display1_clear_at
+        ):
+            self._display1_clear_at = None
+            if self.display is not None:
+                self.display.clear(show=True)
 
     def loop_forever(self):
         while True:
@@ -192,6 +203,7 @@ class CityPanel:
         self.set_fragment_count(0, show=False)
         self.set_encoder_letter("medic_code_1", 0, show=False)
         self.set_encoder_letter("medic_code_2", 0, show=False)
+        self.set_encoder_letter("medic_code_3", 0, show=False)
 
         self.leds.update()
 
@@ -249,18 +261,11 @@ class CityPanel:
         self.display2.set_index_letter(index)
 
     def set_encoder_display(self, encoder_name: str, index: int):
-        if encoder_name in self._encoder_display_state:
-            self._encoder_display_state[encoder_name] = index % 10
-
-        if encoder_name == "medic_code_1":
+        # All three medic_code encoders share display1: whichever one moved
+        # last shows its letter for 2 seconds, then display1 auto-clears.
+        if encoder_name in ("medic_code_1", "medic_code_2", "medic_code_3"):
             self.set_display_letter_index(index)
-        elif encoder_name == "medic_code_2":
-            self.set_display2_letter_index(index)
-
-        if self.display7seg is not None:
-            l1 = chr(ord("A") + self._encoder_display_state["medic_code_1"])
-            l2 = chr(ord("A") + self._encoder_display_state["medic_code_2"])
-            self.display7seg.set_text(f"{l1}{l2}")
+            self._display1_clear_at = time.monotonic() + 2.0
 
     def set_display7seg_text(self, text: str):
         if self.display7seg is None:

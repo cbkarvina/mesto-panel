@@ -1,18 +1,18 @@
 ## Elements
 
-- 74AHCT125 - power shift
-- MCP23017 - tlacitka
-- i2cdetect 1
-- LED - WS2812B - led pasek
-- MAT - MAX7219 - 8x8 panel
+- RPI3B
+- WS2812B - adresace led pasku
+- 74AHCT125 - power shift pro led
+- MCP23017 - i2c port expander
+- MAX7219 - 8x8 panel (MAT)
 
-# RPI pinout
+# RPI GPIO pinout
 
 | Pin | Value  | Connected  | Pin | Value  | Connected   |
 | --- | ------ | ---------- | --- | ------ | ----------- |
-| 1   | 3V3    | -          | 2   | 5V     | MAT VCC (r) |
-| 3   | GPIO2  | -          | 4   | 5V     | -           |
-| 5   | GPIO3  | -          | 6   | GND    | -           |
+| 1   | 3V3    | MCP + (r)  | 2   | 5V     | MAT VCC (r) |
+| 3   | GPIO2  | MCP SDA 13 | 4   | 5V     | -           |
+| 5   | GPIO3  | MCP SCL 12 | 6   | GND    | MCP GND (K) |
 | 7   | GPIO4  | -          | 8   | GPIO14 | -           |
 | 9   | GND    | -          | 10  | GPIO15 | -           |
 | 11  | GPIO17 | -          | 12  | GPIO18 | LED +       |
@@ -47,45 +47,40 @@ sudo -E env PATH=$PATH python3 test_chain.py
 sudo -E env PATH=$PATH python3 test_led2.py - not OK
 ```
 
-## Test led - 74AHCT125, WS2812B
+## Test LED - single wire WS2812B protocol via 74AHCT125
 
 see https://learn.adafruit.com/neopixels-on-raspberry-pi
 
 ```
 vi /boot/config.txt (boot/firmware/config)
 change dtparam=audio=on => off
+sudo -E env PATH=$PATH python3 test_city_leds.py
 ```
 
-## Test buttons
+## Test buttons - i2c
+
+Default MCP23017 address: 0x20
+
+Address lines A0, A1, A2 can be used to daisy-chain up to 8 MCP23017s:
 
 ```
+0x20 (A0=0, A1=0, A2=0)
+0x21 (A0=1, A1=0, A2=0)
+0x22 (A0=0, A1=1, A2=0)
+...
+0x27 (A0=1, A1=1, A2=1)
+
 i2cdetect -y 1
-
-Expected MCP23017 address: 0x20
-
 sudo -E env PATH=$PATH python3 testbuttons.py
-
 ```
 
 ## Quick run
 
 ```
-sudo python3 main.py
-
-cd 2026_panel/
+cd ....
 source env/bin/activate
-sudo -E env PATH="$PATH" python3 test_city_leds.py
 sudo -E env PATH="$PATH" python3 main.py
 ```
-
-# How to wire MAX7219CNG on Raspberry Pi (SPI0)
-
-MAX7219 Pin RPi 400 Pin GPIO Signal
-VCC 2 or 4 — 5V power
-GND 6, 9, 14, 20, 25, 30, 34, or 39 — Ground
-DIN (MOSI) 19 GPIO10 SPI data in
-CLK (SCLK) 23 GPIO11 SPI clock
-CS (LOAD) 24 GPIO8 SPI chip select
 
 # WIRING NOTES
 
@@ -98,18 +93,3 @@ CS (LOAD) 24 GPIO8 SPI chip select
   → Wire 10kΩ pull-up from pin to +3.3V
 
 - All inputs should connect to the input pin and GND for active-low logic
-
-# I2C ADDRESS
-
-Default MCP23017 address: 0x20
-
-Address lines A0, A1, A2 can be used to daisy-chain up to 8 MCP23017s:
-0x20 (A0=0, A1=0, A2=0)
-0x21 (A0=1, A1=0, A2=0)
-0x22 (A0=0, A1=1, A2=0)
-...
-0x27 (A0=1, A1=1, A2=1)
-
-```
-
-```
