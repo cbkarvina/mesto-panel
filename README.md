@@ -3,7 +3,7 @@
 - 74AHCT125 - power shift
 - MCP23017 - tlacitka
 - i2cdetect 1
-- WS2812B - led pasek
+- LED - WS2812B - led pasek
 - MAT - MAX7219 - 8x8 panel
 
 # RPI pinout
@@ -15,8 +15,8 @@
 | 5   | GPIO3  | -          | 6   | GND    | -           |
 | 7   | GPIO4  | -          | 8   | GPIO14 | -           |
 | 9   | GND    | -          | 10  | GPIO15 | -           |
-| 11  | GPIO17 | -          | 12  | GPIO18 | -           |
-| 13  | GPIO27 | -          | 14  | GND    | -           |
+| 11  | GPIO17 | -          | 12  | GPIO18 | LED +       |
+| 13  | GPIO27 | -          | 14  | GND    | LED GND     |
 | 15  | GPIO22 | -          | 16  | GPIO23 | -           |
 | 17  | 3V3    | -          | 18  | GPIO24 | -           |
 | 19  | GPIO10 | MAT Din(o) | 20  | GND    | MAT GND (b) |
@@ -33,31 +33,50 @@
 
 # Install
 
-sudo apt update
-sudo apt install -y python3-pip
-pip3 install rpi_ws281x adafruit-circuitpython-neopixel
-
-apt install python3-venv
+```
+apt install python3-pip python3-venv i2c-tools
 python -m venv env --system-site-packages
 source env/bin/activate
+pip3 install rpi_ws281x adafruit-circuitpython-neopixel adafruit-blinka smbus2
+```
 
-python3 -m pip install --force-reinstall adafruit-blinka
-python3 -m pip install rpi-ws281x adafruit-circuitpython-neopixel
+## Test matrix - MAX7219
 
+```
+sudo -E env PATH=$PATH python3 test_chain.py
+sudo -E env PATH=$PATH python3 test_led2.py - not OK
+```
+
+## Test led - 74AHCT125, WS2812B
+
+see https://learn.adafruit.com/neopixels-on-raspberry-pi
+
+```
+vi /boot/config.txt (boot/firmware/config)
+change dtparam=audio=on => off
+```
+
+## Test buttons
+
+```
 i2cdetect -y 1
 
 Expected MCP23017 address: 0x20
 
-pip3 install smbus2 python3-pip i2c-tools
-
 sudo -E env PATH=$PATH python3 testbuttons.py
 
+```
+
+## Quick run
+
+```
 sudo python3 main.py
 
 cd 2026_panel/
 source env/bin/activate
 sudo -E env PATH="$PATH" python3 test_city_leds.py
 sudo -E env PATH="$PATH" python3 main.py
+```
 
 # How to wire MAX7219CNG on Raspberry Pi (SPI0)
 
@@ -90,3 +109,7 @@ Address lines A0, A1, A2 can be used to daisy-chain up to 8 MCP23017s:
 0x22 (A0=0, A1=1, A2=0)
 ...
 0x27 (A0=1, A1=1, A2=1)
+
+```
+
+```
