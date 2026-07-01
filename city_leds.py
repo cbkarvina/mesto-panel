@@ -258,7 +258,9 @@ class CityLeds:
             segment_name = "encoder2_letters"
             on_color = MAGENTA
         else:
-            raise KeyError(f"Unknown encoder name: {encoder_name}")
+            # Encoders without a dedicated LED letter bar (e.g. medic_code_3)
+            # only drive the MAX7219 display, so there is nothing to light here.
+            return
 
         if segment_name not in self.segments:
             return
