@@ -132,12 +132,12 @@ class CityPanel:
         # self.inputs.add_switch("transport_route_2", self.mcp1, 12)
         # self.inputs.add_switch("transport_route_3", self.mcp1, 13)
         # self.inputs.add_button("transport_reset", self.mcp1, 14)
-        self.inputs.add_encoder("medic_code_1", self.mcp1, pin_a=7, pin_b=8)
-        self.inputs.add_encoder("medic_code_2", self.mcp1, pin_a=6, pin_b=5)
-        self.inputs.add_encoder("medic_code_3", self.mcp1, pin_a=4, pin_b=3)
+        self.inputs.add_encoder("medic_code_1", self.mcp1, pin_a=0, pin_b=1)
+        self.inputs.add_encoder("medic_code_2", self.mcp1, pin_a=2, pin_b=3)
+        self.inputs.add_encoder("medic_code_3", self.mcp1, pin_a=4, pin_b=5)
 
         # CORE
-        self.inputs.add_button("core_activate", self.mcp1, 2)
+        self.inputs.add_button("core_activate", self.mcp1, 8)
 
         # ===== MCP2 (optional): two EC11 encoders for medic code =====
         # if self.mcp2 is not None:
