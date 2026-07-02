@@ -418,7 +418,6 @@ class GameEngine:
         word = self.morse_word
         if not word:
             self._fail_mission("invalid_code", detail="Morse: nezadáno žádné slovo.")
-            self.pending_events.append(EngineEvent("comms_error", {}))
             return
 
         morse = " ".join(MORSE_ALPHABET.get(ch, "") for ch in word)
@@ -442,7 +441,6 @@ class GameEngine:
             self.morse_word = ""
         else:
             self._fail_mission("invalid_code", detail=f"Morse: zadáno '{word}'. Zkontroluj kód.")
-            self.pending_events.append(EngineEvent("comms_error", {}))
 
     def _unlock_fragment(self, fragment: str):
         if fragment not in self.fragments_found:

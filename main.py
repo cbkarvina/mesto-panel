@@ -19,11 +19,6 @@ MORSE_DASH = 0.45
 MORSE_GAP = 0.15
 MORSE_LETTER_GAP = 0.45
 
-# Červené bliknutí Morse LED při nevyřešeném komunikačním kódu.
-COMMS_ERROR_BLINKS = 3
-COMMS_ERROR_ON = 0.2
-COMMS_ERROR_OFF = 0.2
-
 _buzzer = None
 
 
@@ -48,43 +43,19 @@ def _buzzer_set(on: bool):
 
 
 def play_morse(panel, morse: str):
-    """Přehraje Morse řetězec (písmena oddělená mezerou) na LED + bzučáku."""
-    leds = getattr(panel, "leds", None)
+    """Přehraje Morse řetězec (písmena oddělená mezerou) na bzučáku.
 
-    def light(on: bool):
-        if leds is None:
-            return
-        try:
-            # Komunikační režim = rezervovaná Morse LED (první pixel z pásku).
-            leds.set_comms_led((0, 255, 0) if on else (0, 0, 0))
-        except Exception:
-            pass
-
+    Komunikační LED se pro Morse nepoužívá — slouží jen jako stavový
+    indikátor (vyřešeno / nevyřešeno).
+    """
     for token in morse.split(" "):
         for symbol in token:
             duration = MORSE_DASH if symbol == "-" else MORSE_DOT
-            light(True)
             _buzzer_set(True)
             time.sleep(duration)
             _buzzer_set(False)
-            light(False)
             time.sleep(MORSE_GAP)
         time.sleep(MORSE_LETTER_GAP)
-
-
-def blink_comms_error(panel):
-    """Červené bliknutí Morse LED komunikace = kód nevyřešen."""
-    leds = getattr(panel, "leds", None)
-    if leds is None:
-        return
-    try:
-        for _ in range(COMMS_ERROR_BLINKS):
-            leds.set_comms_led((255, 0, 0))
-            time.sleep(COMMS_ERROR_ON)
-            leds.set_comms_led((0, 0, 0))
-            time.sleep(COMMS_ERROR_OFF)
-    except Exception:
-        pass
 
 
 def main():
@@ -139,6 +110,11 @@ def main():
                 for ev in engine.pop_events():
                     if ev.type == "system_status":
                         panel.set_system_status(ev.payload["system"], ev.payload["status"])
+                        # Stavová LED komunikace: zelená po vyřešení kódu.
+                        if ev.payload["system"] == "comms":
+                            leds = getattr(panel, "leds", None)
+                            if leds is not None:
+                                leds.set_comms_solved(ev.payload["status"] == "ok")
 
                     elif ev.type == "power_level":
                         panel.set_power_level(ev.payload["percent"])
@@ -191,11 +167,6 @@ def main():
                         # Přehrání Morse slova na LED + bzučáku.
                         print(f"MORSE PLAY: {ev.payload['word']}  [{ev.payload['morse']}]")
                         play_morse(panel, ev.payload["morse"])
-
-                    elif ev.type == "comms_error":
-                        # Nevyřešený komunikační kód = červené bliknutí Morse LED.
-                        print("COMMS ERROR: kód nevyřešen")
-                        blink_comms_error(panel)
 
                     elif ev.type == "message":
                         print(f"ENGINE: {ev.payload['text']}")

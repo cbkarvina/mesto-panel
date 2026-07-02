@@ -109,11 +109,12 @@ class CityLeds:
         self.add_segment("encoder1_letters", 64, 10)
         self.add_segment("encoder2_letters", 74, 10)
 
-        # Komunikační modul: první LED z pásku slouží jako Morse výstup.
-        # Rezervované pixely nikdy nepřepíše běžné vykreslování segmentů;
-        # ovládají se přímo (viz set_comms_led).
+        # Komunikační modul: LED z pásku slouží jako stavový indikátor.
+        # Dokud není kód vyřešen → červeně bliká; po vyřešení → zeleně svítí.
         self.comms_morse_led = 10
         self.reserved_pixels = frozenset({self.comms_morse_led})
+        self.comms_solved = False
+        self.comms_blink_period = 0.6
 
     def add_segment(self, name: str, start: int, length: int):
         if start < 0 or length <= 0 or start + length > self.led_count:
@@ -136,10 +137,18 @@ class CityLeds:
         self.pixels[index] = color
 
     def set_comms_led(self, color: Color, show: bool = True):
-        """Ovládá Morse LED komunikace (přímý zápis do rezervovaného pixelu)."""
+        """Přímý zápis do rezervované stavové LED komunikace."""
         self.pixels[self.comms_morse_led] = color
         if show:
             self.show()
+
+    def set_comms_solved(self, solved: bool, show: bool = True):
+        """Stav komunikačního kódu: True = vyřešeno (zelená), False = bliká červeně."""
+        self.comms_solved = solved
+        if solved:
+            self.pixels[self.comms_morse_led] = GREEN
+            if show:
+                self.show()
 
     def show(self):
         if self._show_disabled:
@@ -340,6 +349,15 @@ class CityLeds:
 
             for i in range(seg.start, seg.start + seg.length):
                 self._set_pixel(i, color)
+
+        # Stavová LED komunikace: vyřešeno = zelená, jinak červené blikání.
+        if self.comms_solved:
+            self.pixels[self.comms_morse_led] = GREEN
+        elif self.comms_blink_period <= 0:
+            self.pixels[self.comms_morse_led] = RED
+        else:
+            phase = (now % self.comms_blink_period) / self.comms_blink_period
+            self.pixels[self.comms_morse_led] = RED if phase < 0.5 else BLACK
 
         self.show()
         self._last_update = now
