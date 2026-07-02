@@ -410,9 +410,16 @@ class GameEngine:
                 {"text": f"Morse: smazáno {removed} → {self.morse_word or '(prázdné)'}"}
             ))
         # Zobraz dosavadní slovo z paměti na 2 s, pak zpět na živý Morse náhled.
-        self.pending_events.append(EngineEvent(
-            "display7seg", {"word": self.morse_word, "hold": 2.0}
-        ))
+        # Po smazání posledního znaku (slovo prázdné) přehraj jednorázovou
+        # animaci místo prázdné obrazovky.
+        if self.morse_word:
+            self.pending_events.append(EngineEvent(
+                "display7seg", {"word": self.morse_word, "hold": 2.0}
+            ))
+        else:
+            self.pending_events.append(EngineEvent(
+                "display7seg", {"anim": "clear"}
+            ))
 
     def _morse_send(self):
         word = self.morse_word

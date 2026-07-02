@@ -158,6 +158,8 @@ def main():
                             panel.show_display7seg_word(
                                 ev.payload["word"], ev.payload.get("hold", 2.0)
                             )
+                        elif "anim" in ev.payload:
+                            panel.play_display7seg_clear_anim()
                         elif "blink_morse" in ev.payload:
                             panel.blink_display7seg_morse(ev.payload["blink_morse"])
                         else:

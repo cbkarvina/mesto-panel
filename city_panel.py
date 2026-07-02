@@ -52,6 +52,11 @@ class CityPanel:
         self._blink_deadline: Optional[float] = None
         self._blink_toggle_at: Optional[float] = None
         self._blink_on = False
+        # COMMS 7-seg: one-shot animation (e.g. after clearing the word).
+        self._anim7seg_frames: Optional[list] = None
+        self._anim7seg_index = 0
+        self._anim7seg_next_at: Optional[float] = None
+        self._anim7seg_interval = 0.06
         self._event_callback: Optional[Callable[[InputEvent], None]] = None
 
         # ---------------------------
@@ -197,6 +202,20 @@ class CityPanel:
             self._display2_clear_at = None
             if self.display2 is not None:
                 self.display2.clear(show=True)
+        # One-shot 7-seg animation (non-blocking). Takes precedence over the
+        # revert/blink timers, which are cancelled when it starts.
+        if self._anim7seg_frames is not None and self.display7seg is not None:
+            now = time.monotonic()
+            if self._anim7seg_next_at is not None and now >= self._anim7seg_next_at:
+                self._anim7seg_index += 1
+                if self._anim7seg_index >= len(self._anim7seg_frames):
+                    self._anim7seg_frames = None
+                    self._anim7seg_next_at = None
+                    # Animation finished: back to the live morse preview.
+                    self.display7seg.set_morse(self._last_morse_code)
+                else:
+                    self._anim7seg_next_at = now + self._anim7seg_interval
+                    self.display7seg.set_morse(self._anim7seg_frames[self._anim7seg_index])
         # After a submitted word has been shown, revert the COMMS 7-seg back to
         # the live morse preview of the current switch selection.
         if (
@@ -348,6 +367,7 @@ class CityPanel:
         if (
             self._display7seg_revert_at is not None
             or self._blink_deadline is not None
+            or self._anim7seg_frames is not None
             or self.display7seg is None
         ):
             return
@@ -359,6 +379,7 @@ class CityPanel:
             return
         # A button press forces this display: cancel any pending word window.
         self._display7seg_revert_at = None
+        self._anim7seg_frames = None
         self._blink_code = code
         self._blink_on = True
         self._blink_deadline = time.monotonic() + duration
@@ -372,8 +393,33 @@ class CityPanel:
         # A button press forces this display: cancel any running error blink.
         self._blink_deadline = None
         self._blink_toggle_at = None
+        self._anim7seg_frames = None
         self.display7seg.set_text(word)
         self._display7seg_revert_at = time.monotonic() + seconds
+
+    def play_display7seg_anim(self, frames, interval: float = 0.06):
+        # Play a one-shot sequence of morse frames, then revert to live preview.
+        if self.display7seg is None or not frames:
+            return
+        # Take over the display: cancel word window and error blink.
+        self._display7seg_revert_at = None
+        self._blink_deadline = None
+        self._blink_toggle_at = None
+        self._anim7seg_frames = list(frames)
+        self._anim7seg_index = 0
+        self._anim7seg_interval = interval
+        self._anim7seg_next_at = time.monotonic() + interval
+        self.display7seg.set_morse(self._anim7seg_frames[0])
+
+    def play_display7seg_clear_anim(self):
+        # One-shot sweep of a dash across the 8 digits, then blank — shown when
+        # the last morse letter is deleted (instead of an instantly blank panel).
+        frames = [
+            "".join("-" if j == pos else " " for j in range(8))
+            for pos in range(8)
+        ]
+        frames.append(" " * 8)
+        self.play_display7seg_anim(frames, interval=0.06)
 
     def set_display7seg_number(self, value: int):
         if self.display7seg is None:
