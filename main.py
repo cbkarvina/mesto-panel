@@ -164,6 +164,8 @@ def main():
                             panel.show_display7seg_word(
                                 ev.payload["word"], ev.payload.get("hold", 2.0)
                             )
+                        elif "blink_morse" in ev.payload:
+                            panel.blink_display7seg_morse(ev.payload["blink_morse"])
                         else:
                             panel.set_display7seg_morse(ev.payload.get("morse", ""))
 

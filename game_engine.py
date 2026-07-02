@@ -384,8 +384,10 @@ class GameEngine:
         if letter is None:
             self.pending_events.append(EngineEvent(
                 "message",
-                {"text": f"Morse: neznámý znak '{code}'."}
+                {"text": f"Morse: neznámý znak '{code}' — nepřidáno."}
             ))
+            # Blikni špatným kódem na displeji a písmeno neukládej.
+            self.pending_events.append(EngineEvent("display7seg", {"blink_morse": code}))
             self.pending_events.append(EngineEvent("sound", {"clip": "error"}))
             return
 

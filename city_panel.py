@@ -47,6 +47,11 @@ class CityPanel:
         # COMMS 7-seg: live morse preview + timed word display after submit.
         self._display7seg_revert_at: Optional[float] = None
         self._last_morse_code = ""
+        # COMMS 7-seg: error blink of an invalid morse code.
+        self._blink_code = ""
+        self._blink_deadline: Optional[float] = None
+        self._blink_toggle_at: Optional[float] = None
+        self._blink_on = False
         self._event_callback: Optional[Callable[[InputEvent], None]] = None
 
         # ---------------------------
@@ -201,6 +206,21 @@ class CityPanel:
             self._display7seg_revert_at = None
             if self.display7seg is not None:
                 self.display7seg.set_morse(self._last_morse_code)
+        # Error blink of an invalid morse code (non-blocking).
+        if self._blink_deadline is not None and self.display7seg is not None:
+            now = time.monotonic()
+            if now >= self._blink_deadline:
+                self._blink_deadline = None
+                self._blink_toggle_at = None
+                # Back to the live preview of the current switch selection.
+                self.display7seg.set_morse(self._last_morse_code)
+            elif self._blink_toggle_at is not None and now >= self._blink_toggle_at:
+                self._blink_on = not self._blink_on
+                self._blink_toggle_at = now + 0.15
+                if self._blink_on:
+                    self.display7seg.set_morse(self._blink_code)
+                else:
+                    self.display7seg.clear(show=True)
 
     def loop_forever(self):
         while True:
@@ -322,10 +342,25 @@ class CityPanel:
 
     def set_display7seg_morse(self, code: str):
         # Live preview of the morse selected by the 4 element switches. Held
-        # back while a submitted word is being shown for its 2s window.
+        # back while a submitted word is being shown for its 2s window, or
+        # while an error code is blinking.
         self._last_morse_code = code
-        if self._display7seg_revert_at is not None or self.display7seg is None:
+        if (
+            self._display7seg_revert_at is not None
+            or self._blink_deadline is not None
+            or self.display7seg is None
+        ):
             return
+        self.display7seg.set_morse(code)
+
+    def blink_display7seg_morse(self, code: str, duration: float = 1.2):
+        # Blink an invalid morse code, then revert to the live preview.
+        if self.display7seg is None:
+            return
+        self._blink_code = code
+        self._blink_on = True
+        self._blink_deadline = time.monotonic() + duration
+        self._blink_toggle_at = time.monotonic() + 0.15
         self.display7seg.set_morse(code)
 
     def show_display7seg_word(self, word: str, seconds: float = 2.0):
