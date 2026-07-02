@@ -50,10 +50,9 @@ def play_morse(panel, morse: str):
         if leds is None:
             return
         try:
-            if on:
-                leds.fill_segment("comms", (0, 255, 0), show=True)
-            else:
-                leds.clear_segment("comms", show=True)
+            # Komunikační režim = první LED dioda z pásku.
+            leds.pixels[0] = (0, 255, 0) if on else (0, 0, 0)
+            leds.show()
         except Exception:
             pass
 

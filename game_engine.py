@@ -381,7 +381,7 @@ class GameEngine:
             return
 
         letter = MORSE_TO_LETTER.get(code)
-        if letter is None:
+        if letter is None or not letter.isalpha():
             self.pending_events.append(EngineEvent(
                 "message",
                 {"text": f"Morse: neznámý znak '{code}' — nepřidáno."}
