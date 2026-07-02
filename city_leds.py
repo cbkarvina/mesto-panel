@@ -440,14 +440,15 @@ class CityLeds:
         elif self.central_bar_fraction is not None:
             seg = self.segments["central"]
             color = self._countdown_bar_color(self.central_bar_fraction)
-            filled = self.central_bar_fraction * seg.length
+            # Počet svítících LED = zbývající čas. LED zhasínají jedna po druhé
+            # (odpočet pozpátku). Zaokrouhlení nahoru, aby poslední LED svítila,
+            # dokud čas úplně nevyprší.
+            raw = self.central_bar_fraction * seg.length
+            lit = int(raw)
+            if raw - lit > 0:
+                lit += 1
             for offset, i in enumerate(self._segment_indices("central")):
-                if offset + 1 <= filled:
-                    b = 1.0
-                elif offset < filled:
-                    b = filled - offset  # částečný pixel na čele pruhu (fade)
-                else:
-                    b = 0.0
+                b = 1.0 if offset < lit else 0.0
                 self._set_pixel(i, scale_color(color, b))
 
         self.show()
