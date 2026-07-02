@@ -358,6 +358,8 @@ class GameEngine:
                 {"text": f"Panel odemčen! Heslo: {password}"}
             ))
             self.pending_events.append(EngineEvent("locked", {"locked": False}))
+            # Jednorázová animace odemčení na displejích.
+            self.pending_events.append(EngineEvent("display_anim", {"kind": "unlock"}))
             self.pending_events.append(EngineEvent("sound", {"clip": "success"}))
             self.pending_events.append(EngineEvent(
                 "animation", {"kind": "success", "system": "core"}

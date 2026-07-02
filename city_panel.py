@@ -10,6 +10,7 @@ from max7219_display import (
     Max7219Display,
     Max7219DisplayError,
     Max7219SevenSegDisplay,
+    SYMBOLS,
 )
 
 
@@ -64,6 +65,11 @@ class CityPanel:
         self._locked_toggle_at: Optional[float] = None
         self._locked_period = 0.5
         self._locked_message = "LOCKED"
+        # Jednorázová animace odemčení (matice + 7-seg), non-blocking.
+        self._unlock_anim_frames: Optional[list] = None
+        self._unlock_anim_index = 0
+        self._unlock_anim_next_at: Optional[float] = None
+        self._unlock_anim_interval = 0.08
         self._event_callback: Optional[Callable[[InputEvent], None]] = None
 
         # ---------------------------
@@ -206,6 +212,24 @@ class CityPanel:
                     self.display7seg.set_text(self._locked_message)
                 else:
                     self.display7seg.clear(show=True)
+        # Jednorázová animace odemčení (matice + 7-seg). Má přednost, dokud běží.
+        if self._unlock_anim_frames is not None:
+            now = time.monotonic()
+            if self._unlock_anim_next_at is not None and now >= self._unlock_anim_next_at:
+                self._unlock_anim_index += 1
+                if self._unlock_anim_index >= len(self._unlock_anim_frames):
+                    self._unlock_anim_frames = None
+                    self._unlock_anim_next_at = None
+                    # Konec animace: zhasni matice, 7-seg zpět na živý náhled.
+                    if self.display is not None:
+                        self.display.clear(show=True)
+                    if self.display2 is not None:
+                        self.display2.clear(show=True)
+                    if self.display7seg is not None:
+                        self.display7seg.set_morse(self._last_morse_code)
+                else:
+                    self._unlock_anim_next_at = now + self._unlock_anim_interval
+                    self._apply_unlock_frame(self._unlock_anim_index)
         if (
             self._display1_clear_at is not None
             and time.monotonic() >= self._display1_clear_at
@@ -398,7 +422,46 @@ class CityPanel:
         self._locked_on = True
         self._locked_toggle_at = time.monotonic() + self._locked_period
         if self.display7seg is not None:
-            self.display7seg.set_text("LOC")
+            self.display7seg.set_text(self._locked_message)
+
+    def play_unlock_anim(self):
+        """Jednorázová oslavná animace odemčení na obou maticích i 7-seg panelu."""
+        # Ukonči případné blikání zámku — panel je odemčen.
+        self._locked_blink = False
+        self._locked_toggle_at = None
+        # Zruš ostatní 7-seg stavy, aby animace měla displej pro sebe.
+        self._display7seg_revert_at = None
+        self._blink_deadline = None
+        self._blink_toggle_at = None
+        self._anim7seg_frames = None
+        self._anim7seg_next_at = None
+
+        frames = []
+        # Fáze 1: matice se plní shora dolů, po 7-seg přejíždí pomlčka.
+        for i in range(8):
+            rows = [0xFF if r <= i else 0x00 for r in range(8)]
+            seg = "".join("-" if j == i else " " for j in range(8))
+            frames.append((rows, seg))
+        # Fáze 2: bliknutí, pak úsměv na maticích a "OPEN" na 7-seg.
+        smiley = list(SYMBOLS[1])
+        frames.append(([0xFF] * 8, "  OPEN  "))
+        frames.append((smiley, "  OPEN  "))
+        frames.append((smiley, "  OPEN  "))
+
+        self._unlock_anim_frames = frames
+        self._unlock_anim_index = 0
+        self._unlock_anim_next_at = time.monotonic() + self._unlock_anim_interval
+        self._apply_unlock_frame(0)
+
+    def _apply_unlock_frame(self, index: int):
+        rows, seg = self._unlock_anim_frames[index]
+        if rows is not None:
+            if self.display is not None:
+                self.display.set_rows(rows)
+            if self.display2 is not None:
+                self.display2.set_rows(rows)
+        if seg is not None and self.display7seg is not None:
+            self.display7seg.set_text(seg)
 
     def set_display7seg_morse(self, code: str):
         # Live preview of the morse selected by the 4 element switches. Held
@@ -409,6 +472,7 @@ class CityPanel:
             self._display7seg_revert_at is not None
             or self._blink_deadline is not None
             or self._anim7seg_frames is not None
+            or self._unlock_anim_frames is not None
             or self._locked_blink
             or self.display7seg is None
         ):

@@ -140,6 +140,10 @@ def main():
                             ev.payload["locked"], ev.payload.get("message")
                         )
 
+                    elif ev.type == "display_anim":
+                        if ev.payload.get("kind") == "unlock":
+                            panel.play_unlock_anim()
+
                     elif ev.type == "sound":
                         # Placeholder pro TTS / přednahrané zvuky.
                         print(f"SOUND: {ev.payload['clip']}")
