@@ -115,7 +115,7 @@ class CityLeds:
 
         # Komunikační modul: LED z pásku slouží jako stavový indikátor.
         # Dokud není kód vyřešen → červeně bliká; po vyřešení → zeleně svítí.
-        self.comms_morse_led = 40
+        self.comms_morse_led = 32
         self.reserved_pixels = frozenset({self.comms_morse_led})
         self.comms_solved = False
         self.comms_blink_period = 0.6

@@ -380,6 +380,20 @@ class CityPanel:
             return
         self.display2.set_index_symbol(index)
 
+    def show_display2_morse_preview(self, char: Optional[str], seconds: float = 2.0):
+        """Náhled dekódovaného morse znaku na display2 na pár sekund.
+
+        char=None (neplatný/prázdný kód) display2 rovnou zhasne.
+        """
+        if self.display2 is None:
+            return
+        if char:
+            self.display2.set_char(char)
+            self._display2_clear_at = time.monotonic() + seconds
+        else:
+            self.display2.clear(show=True)
+            self._display2_clear_at = None
+
     def set_encoder_display(self, encoder_name: str, index: int):
         # All lock_encoder encoders share display2 (mounted upside down): whichever
         # one moved last shows its value for 2 seconds, then display2 auto-clears.

@@ -149,6 +149,9 @@ def main():
                         if ev.payload.get("kind") == "unlock":
                             panel.play_unlock_anim()
 
+                    elif ev.type == "display2_preview":
+                        panel.show_display2_morse_preview(ev.payload.get("char"))
+
                     elif ev.type == "sound":
                         # Placeholder pro TTS / přednahrané zvuky.
                         print(f"SOUND: {ev.payload['clip']}")

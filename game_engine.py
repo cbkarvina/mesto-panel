@@ -449,9 +449,15 @@ class GameEngine:
         return "".join(parts)
 
     def _emit_morse_preview(self):
-        """Zobrazí na COMMS 7-segmentovce živý Morse podle přepínačů."""
+        """Zobrazí na COMMS 7-segmentovce živý Morse podle přepínačů a na
+        maticovém displeji 2 náhled dekódovaného znaku (na 2 s)."""
+        code = self._current_morse()
         self.pending_events.append(
-            EngineEvent("display7seg", {"morse": self._current_morse()})
+            EngineEvent("display7seg", {"morse": code})
+        )
+        # Náhled dekódovaného písmene na display2 (None = neplatný/prázdný kód).
+        self.pending_events.append(
+            EngineEvent("display2_preview", {"char": MORSE_TO_LETTER.get(code)})
         )
 
     def _morse_add_letter(self):
