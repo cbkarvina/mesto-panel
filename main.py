@@ -19,6 +19,11 @@ MORSE_DASH = 0.45
 MORSE_GAP = 0.15
 MORSE_LETTER_GAP = 0.45
 
+# Červené bliknutí Morse LED při nevyřešeném komunikačním kódu.
+COMMS_ERROR_BLINKS = 3
+COMMS_ERROR_ON = 0.2
+COMMS_ERROR_OFF = 0.2
+
 _buzzer = None
 
 
@@ -65,6 +70,21 @@ def play_morse(panel, morse: str):
             light(False)
             time.sleep(MORSE_GAP)
         time.sleep(MORSE_LETTER_GAP)
+
+
+def blink_comms_error(panel):
+    """Červené bliknutí Morse LED komunikace = kód nevyřešen."""
+    leds = getattr(panel, "leds", None)
+    if leds is None:
+        return
+    try:
+        for _ in range(COMMS_ERROR_BLINKS):
+            leds.set_comms_led((255, 0, 0))
+            time.sleep(COMMS_ERROR_ON)
+            leds.set_comms_led((0, 0, 0))
+            time.sleep(COMMS_ERROR_OFF)
+    except Exception:
+        pass
 
 
 def main():
@@ -171,6 +191,11 @@ def main():
                         # Přehrání Morse slova na LED + bzučáku.
                         print(f"MORSE PLAY: {ev.payload['word']}  [{ev.payload['morse']}]")
                         play_morse(panel, ev.payload["morse"])
+
+                    elif ev.type == "comms_error":
+                        # Nevyřešený komunikační kód = červené bliknutí Morse LED.
+                        print("COMMS ERROR: kód nevyřešen")
+                        blink_comms_error(panel)
 
                     elif ev.type == "message":
                         print(f"ENGINE: {ev.payload['text']}")
