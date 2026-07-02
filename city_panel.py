@@ -102,7 +102,7 @@ class CityPanel:
 
                 try:
                     self.display7seg = Max7219SevenSegDisplay(chain=self.chain, module_index=2, intensity=4)
-                    self.display7seg.set_text("AB")
+                    self.display7seg.clear()
                 except Max7219DisplayError as exc:
                     print(f"MAX7219 7-seg display disabled: {exc}")
                     self.display7seg = None
