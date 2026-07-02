@@ -95,26 +95,35 @@ class CityLeds:
     # Segment map
     # ------------------------------------------------------------
     def _setup_default_segments(self):
-        self.add_segment("power", 11, 2)
-        self.add_segment("power_bar", 13, 5)
 
-        self.add_segment("rescue", 18, 8)
-        self.add_segment("comms", 26, 8)
-        self.add_segment("transport", 34, 8)
-        self.add_segment("core", 42, 8)
 
-        self.add_segment("alarm", 50, 8)
-        self.add_segment("misc", 58, 6)
+        self.add_segment("central", 0, 22)
 
-        self.add_segment("encoder1_letters", 64, 10)
-        self.add_segment("encoder2_letters", 74, 10)
+        self.add_segment("power", 111, 2)
+        self.add_segment("power_bar", 113, 5)
+
+        self.add_segment("rescue", 118, 8)
+        self.add_segment("comms", 126, 8)
+        self.add_segment("transport", 134, 8)
+        self.add_segment("core", 142, 8)
+
+        self.add_segment("alarm", 150, 8)
+        self.add_segment("misc", 158, 6)
+
+        self.add_segment("encoder1_letters", 164, 10)
+        self.add_segment("encoder2_letters", 174, 10)
 
         # Komunikační modul: LED z pásku slouží jako stavový indikátor.
         # Dokud není kód vyřešen → červeně bliká; po vyřešení → zeleně svítí.
-        self.comms_morse_led = 10
+        self.comms_morse_led = 40
         self.reserved_pixels = frozenset({self.comms_morse_led})
         self.comms_solved = False
         self.comms_blink_period = 0.6
+
+        # Central segment: červený "Knight Rider" (KITT) skener v zamčeném stavu.
+        self.central_scan = False
+        self.central_scan_period = 1.6   # čas jednoho tam-a-zpět přejezdu (s)
+        self.central_scan_tail = 3.0     # šířka doznívajícího ohonu (v pixelech)
 
     def add_segment(self, name: str, start: int, length: int):
         if start < 0 or length <= 0 or start + length > self.led_count:
@@ -147,6 +156,18 @@ class CityLeds:
         self.comms_solved = solved
         if solved:
             self.pixels[self.comms_morse_led] = GREEN
+            if show:
+                self.show()
+
+    def set_central_scan(self, active: bool, show: bool = True):
+        """Zapne/vypne červený Knight Rider skener na central segmentu.
+
+        Používá se jako indikace zamčeného stavu panelu.
+        """
+        self.central_scan = active
+        if not active:
+            for i in self._segment_indices("central"):
+                self._set_pixel(i, BLACK)
             if show:
                 self.show()
 
@@ -313,6 +334,10 @@ class CityLeds:
             seg = self.segments[name]
             override = self.segment_overrides.get(name)
 
+            # Central segment má v zamčeném stavu vlastní skener (viz níže).
+            if name == "central" and self.central_scan:
+                continue
+
             if override is not None:
                 for offset, i in enumerate(range(seg.start, seg.start + seg.length)):
                     self._set_pixel(i, override[offset])
@@ -358,6 +383,21 @@ class CityLeds:
         else:
             phase = (now % self.comms_blink_period) / self.comms_blink_period
             self.pixels[self.comms_morse_led] = RED if phase < 0.5 else BLACK
+
+        # Central segment: červený Knight Rider (KITT) skener v zamčeném stavu.
+        if self.central_scan:
+            seg = self.segments["central"]
+            span = seg.length - 1
+            if span <= 0 or self.central_scan_period <= 0:
+                pos = 0.0
+            else:
+                phase = (now % self.central_scan_period) / self.central_scan_period
+                # Trojúhelníková vlna: 0 → span → 0 (ping-pong).
+                pos = phase * 2 * span if phase < 0.5 else (1.0 - (phase - 0.5) * 2) * span
+            tail = self.central_scan_tail if self.central_scan_tail > 0 else 1.0
+            for offset, i in enumerate(self._segment_indices("central")):
+                b = max(0.0, 1.0 - abs(offset - pos) / tail)
+                self._set_pixel(i, scale_color(RED, b))
 
         self.show()
         self._last_update = now

@@ -13,6 +13,9 @@ class EngineEvent:
 # Finální hra dne — získání fragmentu Kódu města
 # ----------------------------------------------------------------------
 # Každý systém má svůj fragment, den v týdnu, místo na mapě a hlášení.
+#
+# POZOR: heslo (LOCKED["word"]) NESMÍ obsahovat písmeno "M" — 7-segmentový
+# displej ho neumí zobrazit, takže by ho hráč na panelu nepřečetl.
 LOCKED = {
     "ledMessage": "LOCKED",
     "word": ["heart", "1", "A"],

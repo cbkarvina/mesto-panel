@@ -136,9 +136,14 @@ def main():
                         print(f"FRAGMENT UNLOCKED: {ev.payload['fragment']}")
 
                     elif ev.type == "locked":
+                        locked = ev.payload["locked"]
                         panel.set_display7seg_locked(
-                            ev.payload["locked"], ev.payload.get("message")
+                            locked, ev.payload.get("message")
                         )
+                        # Červený Knight Rider skener na central segmentu při zámku.
+                        leds = getattr(panel, "leds", None)
+                        if leds is not None:
+                            leds.set_central_scan(locked)
 
                     elif ev.type == "display_anim":
                         if ev.payload.get("kind") == "unlock":
