@@ -95,8 +95,8 @@ class CityLeds:
     # Segment map
     # ------------------------------------------------------------
     def _setup_default_segments(self):
-        self.add_segment("power", 100, 10)
-        self.add_segment("power_bar", 90, 10)
+        self.add_segment("power", 11, 2)
+        self.add_segment("power_bar", 13, 5)
 
         self.add_segment("rescue", 18, 8)
         self.add_segment("comms", 26, 8)
