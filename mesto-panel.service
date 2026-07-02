@@ -9,9 +9,9 @@ Type=simple
 
 # --- ADJUST THESE PATHS TO MATCH THE RASPBERRY PI ---
 # Absolute path to the project directory on the Pi.
-WorkingDirectory=/home/pi/mesto-panel
+WorkingDirectory=/home/rpi/mesto-panel
 # Use the venv's python directly (no need to `source activate`).
-ExecStart=/home/pi/mesto-panel/env/bin/python3 /home/pi/mesto-panel/main.py
+ExecStart=/home/rpi/mesto-panel/env/bin/python3 /home/rpi/mesto-panel/main.py
 
 # WS2812B / SPI / GPIO access requires root.
 User=root
