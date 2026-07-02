@@ -1,0 +1,9 @@
+# Raspberry Pi hardware libraries
+smbus2            # MCP23017 I2C GPIO expander
+spidev            # MAX7219 SPI displays
+RPi.GPIO          # native GPIO
+adafruit-blinka   # provides the `board` module
+adafruit-circuitpython-neopixel  # WS2812B LED control
+
+# REST API
+flask

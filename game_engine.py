@@ -9,6 +9,79 @@ class EngineEvent:
     payload: dict = field(default_factory=dict)
 
 
+# ----------------------------------------------------------------------
+# Finální hra dne — získání fragmentu Kódu města
+# ----------------------------------------------------------------------
+# Každý systém má svůj fragment, den v týdnu, místo na mapě a hlášení.
+MISSIONS = {
+    "power": {
+        "day": "wednesday",
+        "map": "ELEKTRÁRNA",
+        "fragment": "POWER-1",
+        "success": "Přístup ověřen. Fragment energetického systému uložen. "
+                   "Dodávka energie byla obnovena.",
+    },
+    "comms": {
+        "day": "monday",
+        "map": "POŠTA",
+        "fragment": "COMMS-1",
+        "word": "LANO",
+        "success": "Přístup ověřen. Komunikační síť je opět online. Fragment kódu uložen.",
+    },
+    "transport": {
+        "day": "thursday",
+        "map": "DOPRAVNÍ CENTRUM A CESTY",
+        "fragment": "TRANSPORT-1",
+        "success": "Přístup ověřen. Dopravní systém synchronizován. Fragment kódu získán.",
+    },
+    "rescue": {
+        "day": "tuesday",
+        "map": "ZÁCHRANNÉ CENTRUM",
+        "fragment": "RESCUE-1",
+        "success": "Přístup ověřen. Nouzové komunikační kanály byly obnoveny. "
+                   "Fragment kódu uložen.",
+    },
+    "core": {
+        "day": "friday",
+        "map": "RADNICE A ZBYTEK MĚSTA",
+        "fragment": "CORE-1",
+        "success": "Přístup ověřen. Poslední fragment přijat. "
+                   "Centrální systém je připraven k aktivaci.",
+    },
+}
+
+# Pořadí dnů v týdnu (pro plánování / přehled).
+DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"]
+
+ERROR_MESSAGES = {
+    "denied": "Ověření selhalo. Přístup zamítnut.",
+    "invalid_code": "Neplatný řídící kód. Zkontrolujte nastavení panelu.",
+    "sync": "Synchronizace systému nebyla dokončena.",
+    "protocol": "Bezpečnostní protokol je stále aktivní. Opakujte postup.",
+}
+
+FINALE_MESSAGES = [
+    "Bylo nalezeno všech pět fragmentů Kódu města.",
+    "Probíhá rekonstrukce hlavního řídícího klíče.",
+    "Rekonstrukce dokončena.",
+    "Centrální řídící systém obnoven.",
+    "Vítejte, agenti. Tajemné město je opět v bezpečí.",
+]
+
+# Mezinárodní Morseova abeceda pro modul KOMUNIKACE (mimo rozsah dekodéru A–J).
+MORSE_ALPHABET = {
+    "A": ".-",   "B": "-...", "C": "-.-.", "D": "-..",  "E": ".",
+    "F": "..-.", "G": "--.",  "H": "....", "I": "..",   "J": ".---",
+    "K": "-.-",  "L": ".-..", "M": "--",   "N": "-.",   "O": "---",
+    "P": ".--.", "Q": "--.-", "R": ".-.",  "S": "...",  "T": "-",
+    "U": "..-",  "V": "...-", "W": ".--",  "X": "-..-", "Y": "-.--",
+    "Z": "--..",
+    "0": "-----", "1": ".----", "2": "..---", "3": "...--", "4": "....-",
+    "5": ".....", "6": "-....", "7": "--...", "8": "---..", "9": "----.",
+}
+MORSE_TO_LETTER = {code: ch for ch, code in MORSE_ALPHABET.items()}
+
+
 class GameEngine:
     def __init__(self):
         self.systems = {
@@ -36,6 +109,14 @@ class GameEngine:
 
         self.fragments_found: List[str] = []
         self.pending_events: List[EngineEvent] = []
+        self._finale_done = False
+
+        # Modul KOMUNIKACE — Morse vysílač
+        # 4 přepínače prvků (False=tečka, True=čárka) + 4 přepínače masky
+        # (které pozice se při stisku Přidat použijí).
+        self.morse_element = [False, False, False, False]
+        self.morse_active = [False, False, False, False]
+        self.morse_word = ""
 
         self.encoder_letters = list("ABCDEFGHIJ")
         self.encoder_positions = {
@@ -91,6 +172,21 @@ class GameEngine:
         elif name in ("fire", "medical", "police") and event_type == "pressed":
             self._handle_rescue_button(name)
 
+        elif name.startswith("morse_el_") and event_type == "changed":
+            self.morse_element[int(name[-1]) - 1] = is_active
+
+        elif name.startswith("morse_act_") and event_type == "changed":
+            self.morse_active[int(name[-1]) - 1] = is_active
+
+        elif name == "morse_add" and event_type == "pressed":
+            self._morse_add_letter()
+
+        elif name == "morse_del" and event_type == "pressed":
+            self._morse_delete()
+
+        elif name == "morse_send" and event_type == "pressed":
+            self._morse_send()
+
         elif name == "core_activate" and event_type == "pressed":
             self._activate_core()
 
@@ -118,26 +214,17 @@ class GameEngine:
         ))
 
         if total >= self.power_required:
-            self.systems["power"] = "ok"
-            self._unlock_fragment("POWER-1")
-            self.pending_events.append(EngineEvent(
-                "system_status",
-                {"system": "power", "status": "ok"}
-            ))
-            self.pending_events.append(EngineEvent(
-                "message",
-                {"text": f"Power stabilized: {total}%"}
-            ))
+            self._complete_mission("power")
         else:
             self.systems["power"] = "failure"
             self.pending_events.append(EngineEvent(
                 "system_status",
                 {"system": "power", "status": "failure"}
             ))
-            self.pending_events.append(EngineEvent(
-                "message",
-                {"text": f"Insufficient power: {total}% / need {self.power_required}%"}
-            ))
+            self._fail_mission(
+                "sync",
+                detail=f"Insufficient power: {total}% / need {self.power_required}%",
+            )
 
     def _current_power(self) -> int:
         total = 0
@@ -148,16 +235,7 @@ class GameEngine:
 
     def _handle_rescue_button(self, name: str):
         if name == "fire":
-            self.systems["rescue"] = "ok"
-            self._unlock_fragment("RESCUE-1")
-            self.pending_events.append(EngineEvent(
-                "system_status",
-                {"system": "rescue", "status": "ok"}
-            ))
-            self.pending_events.append(EngineEvent(
-                "message",
-                {"text": "Fire response successful"}
-            ))
+            self._complete_mission("rescue")
         elif name == "medical":
             self._handle_medical_call()
         else:
@@ -195,16 +273,7 @@ class GameEngine:
         l2 = self._encoder_letter("medic_code_2")
 
         if l1 == l2:
-            self.systems["rescue"] = "ok"
-            self._unlock_fragment("RESCUE-1")
-            self.pending_events.append(EngineEvent(
-                "system_status",
-                {"system": "rescue", "status": "ok"}
-            ))
-            self.pending_events.append(EngineEvent(
-                "message",
-                {"text": f"Medical team dispatched (code match: {l1})"}
-            ))
+            self._complete_mission("rescue")
         else:
             self.pending_events.append(EngineEvent(
                 "message",
@@ -212,22 +281,143 @@ class GameEngine:
             ))
 
     def _activate_core(self):
-        required = {"POWER-1", "RESCUE-1"}
+        required = {"POWER-1", "COMMS-1", "TRANSPORT-1", "RESCUE-1"}
         if required.issubset(set(self.fragments_found)):
-            self.systems["core"] = "ok"
-            self.pending_events.append(EngineEvent(
-                "system_status",
-                {"system": "core", "status": "ok"}
-            ))
-            self.pending_events.append(EngineEvent(
-                "message",
-                {"text": "CORE ACTIVATED"}
-            ))
+            self._complete_mission("core")
         else:
+            self._fail_mission(
+                "protocol",
+                detail="Core locked - missing code fragments",
+            )
+
+    # ------------------------------------------------------------------
+    # Finální mise / fragmenty / efekty
+    # ------------------------------------------------------------------
+    def _complete_mission(self, system: str):
+        """Úspěšné dokončení závěrečné mise dne pro daný systém."""
+        mission = MISSIONS[system]
+        self.systems[system] = "ok"
+        self.pending_events.append(EngineEvent(
+            "system_status",
+            {"system": system, "status": "ok"}
+        ))
+        self.pending_events.append(EngineEvent(
+            "message",
+            {"text": mission["success"]}
+        ))
+        self.pending_events.append(EngineEvent("sound", {"clip": "success"}))
+        self.pending_events.append(EngineEvent(
+            "animation",
+            {"kind": "success", "system": system}
+        ))
+        # Rozsvícení místa na mapě města pro daný den.
+        self.pending_events.append(EngineEvent(
+            "map_reveal",
+            {"system": system, "location": mission["map"], "day": mission["day"]}
+        ))
+        self._unlock_fragment(mission["fragment"])
+        self._check_finale()
+
+    def _fail_mission(self, reason: str = "denied", detail: str = None):
+        """Neúspěšné ověření — chybové hlášení a červené bliknutí."""
+        self.pending_events.append(EngineEvent(
+            "message",
+            {"text": ERROR_MESSAGES.get(reason, ERROR_MESSAGES["denied"])}
+        ))
+        if detail:
+            self.pending_events.append(EngineEvent("message", {"text": detail}))
+        self.pending_events.append(EngineEvent("sound", {"clip": "error"}))
+        self.pending_events.append(EngineEvent("animation", {"kind": "error"}))
+
+    def _check_finale(self):
+        """Páteční finále — spustí se po získání všech pěti fragmentů."""
+        if self._finale_done:
+            return
+        required = {m["fragment"] for m in MISSIONS.values()}
+        if not required.issubset(set(self.fragments_found)):
+            return
+
+        self._finale_done = True
+        self.systems["core"] = "ok"
+        self.pending_events.append(EngineEvent(
+            "system_status",
+            {"system": "core", "status": "ok"}
+        ))
+        for text in FINALE_MESSAGES:
+            self.pending_events.append(EngineEvent("message", {"text": text}))
+        self.pending_events.append(EngineEvent("sound", {"clip": "finale"}))
+        self.pending_events.append(EngineEvent("animation", {"kind": "finale"}))
+
+    # ------------------------------------------------------------------
+    # Modul KOMUNIKACE — Morse vysílač
+    # ------------------------------------------------------------------
+    def _current_morse(self) -> str:
+        """Sestaví Morse aktuálního písmene z aktivních pozic přepínačů."""
+        parts = []
+        for i in range(4):
+            if self.morse_active[i]:
+                parts.append("-" if self.morse_element[i] else ".")
+        return "".join(parts)
+
+    def _morse_add_letter(self):
+        code = self._current_morse()
+        if not code:
             self.pending_events.append(EngineEvent(
                 "message",
-                {"text": "Core locked - missing code fragments"}
+                {"text": "Morse: nastav aspoň jeden aktivní prvek přepínačem masky."}
             ))
+            return
+
+        letter = MORSE_TO_LETTER.get(code)
+        if letter is None:
+            self.pending_events.append(EngineEvent(
+                "message",
+                {"text": f"Morse: neznámý znak '{code}'."}
+            ))
+            self.pending_events.append(EngineEvent("sound", {"clip": "error"}))
+            return
+
+        self.morse_word += letter
+        self.pending_events.append(EngineEvent(
+            "message",
+            {"text": f"Morse: přidáno {letter} ({code}) → {self.morse_word}"}
+        ))
+        self.pending_events.append(EngineEvent("display7seg", {"text": self.morse_word}))
+
+    def _morse_delete(self):
+        if self.morse_word:
+            removed = self.morse_word[-1]
+            self.morse_word = self.morse_word[:-1]
+            self.pending_events.append(EngineEvent(
+                "message",
+                {"text": f"Morse: smazáno {removed} → {self.morse_word or '(prázdné)'}"}
+            ))
+        self.pending_events.append(EngineEvent("display7seg", {"text": self.morse_word}))
+
+    def _morse_send(self):
+        word = self.morse_word
+        if not word:
+            self._fail_mission("invalid_code", detail="Morse: nezadáno žádné slovo.")
+            return
+
+        morse = " ".join(MORSE_ALPHABET.get(ch, "") for ch in word)
+        self.pending_events.append(EngineEvent(
+            "message",
+            {"text": f"Morse: vysílám '{word}'  [{morse}]"}
+        ))
+        # Přehrání celého slova na LED + bzučáku.
+        self.pending_events.append(EngineEvent(
+            "morse_play",
+            {"word": word, "morse": morse}
+        ))
+
+        target = MISSIONS["comms"].get("word", "").upper()
+        if word.upper() == target:
+            self._complete_mission("comms")
+            self.morse_word = ""
+            self.pending_events.append(EngineEvent("display7seg", {"text": ""}))
+        else:
+            self._fail_mission("invalid_code", detail=f"Morse: zadáno '{word}'. Zkontroluj kód.")
 
     def _unlock_fragment(self, fragment: str):
         if fragment not in self.fragments_found:

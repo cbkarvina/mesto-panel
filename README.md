@@ -37,7 +37,7 @@
 apt install python3-pip python3-venv i2c-tools
 python -m venv env --system-site-packages
 source env/bin/activate
-pip3 install rpi_ws281x adafruit-circuitpython-neopixel adafruit-blinka smbus2
+pip3 install rpi_ws281x adafruit-circuitpython-neopixel adafruit-blinka smbus2 flask
 ```
 
 ## Test matrix - MAX7219
@@ -81,6 +81,38 @@ cd ....
 source env/bin/activate
 sudo -E env PATH="$PATH" python3 main.py
 ```
+
+# REST API
+
+`main.py` spouští Flask REST API v pozadí (daemon vlákno, port 5000). Všechen přístup k hardwaru je serializovaný sdíleným zámkem, takže API běží ve stejném procesu jako panelová smyčka.
+
+| Metoda | Endpoint             | Popis                                        |
+| ------ | -------------------- | -------------------------------------------- |
+| GET    | /api/status          | systémy, výkon, fragmenty, pozice enkodérů   |
+| GET    | /api/inputs          | stav tlačítek/přepínačů + pozice enkodérů    |
+| GET    | /api/leds            | logický stav LED (systémy, výkon, fragmenty) |
+| POST   | /api/system/status   | tělo `{"system","status"}`                   |
+| POST   | /api/fragment/unlock | tělo `{"fragment"}`                          |
+| POST   | /api/mission/start   | zatím neimplementováno (501)                 |
+
+```
+curl http://<rpi>:5000/api/status
+curl -X POST http://<rpi>:5000/api/system/status \
+     -H 'Content-Type: application/json' \
+     -d '{"system":"power","status":"ok"}'
+```
+
+# Systemd (běh na pozadí)
+
+```
+sudo cp mesto-panel.service /etc/systemd/system/
+# uprav cesty (WorkingDirectory, ExecStart) podle své instalace
+sudo systemctl daemon-reload
+sudo systemctl enable --now mesto-panel
+sudo journalctl -u mesto-panel -f
+```
+
+Služba se ukončí čistě přes SIGTERM (`systemctl stop mesto-panel`), hardware se uvolní.
 
 # WIRING NOTES
 

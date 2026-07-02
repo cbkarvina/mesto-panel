@@ -1,0 +1,29 @@
+[Unit]
+Description=Tajemne mesto control panel
+# Wait for hardware buses to be ready before starting.
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=simple
+
+# --- ADJUST THESE PATHS TO MATCH THE RASPBERRY PI ---
+# Absolute path to the project directory on the Pi.
+WorkingDirectory=/home/pi/mesto-panel
+# Use the venv's python directly (no need to `source activate`).
+ExecStart=/home/pi/mesto-panel/env/bin/python3 /home/pi/mesto-panel/main.py
+
+# WS2812B / SPI / GPIO access requires root.
+User=root
+Group=root
+
+# Restart automatically if the program crashes.
+Restart=on-failure
+RestartSec=3
+
+# Send stdout/stderr to the systemd journal (view with: journalctl -u mesto-panel).
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

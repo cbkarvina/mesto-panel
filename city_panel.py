@@ -49,11 +49,8 @@ class CityPanel:
         # ---------------------------
         if init_inputs:
             self.mcp1 = MCP23017(address=0x20, busnum=1)
-            try:
-                self.mcp2 = MCP23017(address=0x21, busnum=1)
-            except MCP23017Error:
-                self.mcp2 = None
-
+            self.mcp2 = MCP23017(address=0x21, busnum=1)
+     
             self.inputs = PanelInputs(poll_interval_ms=5)
             self._setup_inputs()
             self.inputs.on_event(self._handle_input_event)
@@ -137,12 +134,23 @@ class CityPanel:
         self.inputs.add_encoder("medic_code_3", self.mcp1, pin_a=4, pin_b=5)
 
         # CORE
-        self.inputs.add_button("core_activate", self.mcp1, 8)
+        self.inputs.add_button("core_activate", self.mcp1, 6)
 
-        # ===== MCP2 (optional): two EC11 encoders for medic code =====
-        # if self.mcp2 is not None:
-        #     self.inputs.add_encoder("medic_code_1", self.mcp2, pin_a=0, pin_b=1)
-        #     self.inputs.add_encoder("medic_code_2", self.mcp2, pin_a=2, pin_b=3)
+        # 4 přepínače prvků (tečka/čárka)
+        self.inputs.add_switch("morse_el_1", self.mcp1, 8)
+        self.inputs.add_switch("morse_el_2", self.mcp1, 9)
+        self.inputs.add_switch("morse_el_3", self.mcp1, 10)
+        self.inputs.add_switch("morse_el_4", self.mcp1, 11)
+        # 4 přepínače masky (které pozice se přidají tlačítkem Přidat)
+        self.inputs.add_switch("morse_act_1", self.mcp1, 12)
+        self.inputs.add_switch("morse_act_2", self.mcp1, 13)
+        self.inputs.add_switch("morse_act_3", self.mcp1, 14)
+        self.inputs.add_switch("morse_act_4", self.mcp1, 15)
+        # ===== MCP2 (0x21): modul KOMUNIKACE — Morse vysílač =====
+        # tlačítka back, add, submit
+        self.inputs.add_button("morse_add", self.mcp2, 0)
+        self.inputs.add_button("morse_del", self.mcp2, 1)
+        self.inputs.add_button("morse_send", self.mcp2, 2)
 
     # ------------------------------------------------------------------
     # EVENT HANDLING
@@ -272,15 +280,12 @@ class CityPanel:
         #   medic_code_2 -> digit 0..9
         #   medic_code_3 -> symbol (10 custom glyphs)
         if encoder_name == "medic_code_1":
-            print(f"DISPLAY: {encoder_name} -> letter {chr(ord('A') + index % 10)}")
             self.set_display_letter_index(index)
             self._display1_clear_at = time.monotonic() + 2.0
         elif encoder_name == "medic_code_2":
-            print(f"DISPLAY: {encoder_name} -> digit {index % 10}")
             self.set_display_char(str(index % 10))
             self._display1_clear_at = time.monotonic() + 2.0
         elif encoder_name == "medic_code_3":
-            print(f"DISPLAY: {encoder_name} -> symbol #{index % 10}")
             self.set_display_symbol_index(index)
             self._display1_clear_at = time.monotonic() + 2.0
 
