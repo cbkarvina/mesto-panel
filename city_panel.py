@@ -141,12 +141,12 @@ class CityPanel:
         # CORE
         self.inputs.add_button("core_activate", self.mcp1, 6)
 
-        # 4 přepínače prvků (tečka/čárka)
+        # 4 přepínače masky (které pozice se počítají / přidají tlačítkem Přidat)
         self.inputs.add_switch("morse_el_1", self.mcp1, 8)
         self.inputs.add_switch("morse_el_2", self.mcp1, 9)
         self.inputs.add_switch("morse_el_3", self.mcp1, 10)
         self.inputs.add_switch("morse_el_4", self.mcp1, 11)
-        # 4 přepínače masky (které pozice se přidají tlačítkem Přidat)
+        # 4 přepínače symbolu (zapnuto = tečka '.', vypnuto = čárka '-')
         self.inputs.add_switch("morse_act_1", self.mcp1, 12)
         self.inputs.add_switch("morse_act_2", self.mcp1, 13)
         self.inputs.add_switch("morse_act_3", self.mcp1, 14)

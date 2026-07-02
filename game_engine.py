@@ -354,11 +354,15 @@ class GameEngine:
     # Modul KOMUNIKACE — Morse vysílač
     # ------------------------------------------------------------------
     def _current_morse(self) -> str:
-        """Sestaví Morse aktuálního písmene z aktivních pozic přepínačů."""
+        """Sestaví Morse aktuálního písmene z aktivních pozic přepínačů.
+
+        morse_element[i] = maska (zapnuto → pozice se počítá),
+        morse_active[i]  = symbol (zapnuto → tečka '.', vypnuto → čárka '-').
+        """
         parts = []
         for i in range(4):
-            if self.morse_active[i]:
-                parts.append("-" if self.morse_element[i] else ".")
+            if self.morse_element[i]:
+                parts.append("." if self.morse_active[i] else "-")
         return "".join(parts)
 
     def _emit_morse_preview(self):
