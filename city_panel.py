@@ -357,6 +357,8 @@ class CityPanel:
         # Blink an invalid morse code, then revert to the live preview.
         if self.display7seg is None:
             return
+        # A button press forces this display: cancel any pending word window.
+        self._display7seg_revert_at = None
         self._blink_code = code
         self._blink_on = True
         self._blink_deadline = time.monotonic() + duration
@@ -367,6 +369,9 @@ class CityPanel:
         # Show the entered word for a fixed time, then revert to morse preview.
         if self.display7seg is None:
             return
+        # A button press forces this display: cancel any running error blink.
+        self._blink_deadline = None
+        self._blink_toggle_at = None
         self.display7seg.set_text(word)
         self._display7seg_revert_at = time.monotonic() + seconds
 
