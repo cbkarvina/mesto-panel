@@ -37,8 +37,9 @@ class CityPanel:
         self.display2 = None
         self.display7seg = None
         self._encoder_display_state = {
-            "medic_code_1": 0,
-            "medic_code_2": 0,
+            "lock_encoder_1": 0,
+            "lock_encoder_2": 0,
+            "lock_encoder_3": 0,
         }
         # When set, display1 is cleared once time.monotonic() reaches this value.
         self._display1_clear_at: Optional[float] = None
@@ -57,6 +58,12 @@ class CityPanel:
         self._anim7seg_index = 0
         self._anim7seg_next_at: Optional[float] = None
         self._anim7seg_interval = 0.06
+        # 7-seg "locked" indikace: bliká, dokud se panel neodemkne.
+        self._locked_blink = False
+        self._locked_on = False
+        self._locked_toggle_at: Optional[float] = None
+        self._locked_period = 0.5
+        self._locked_message = "LOCKED"
         self._event_callback: Optional[Callable[[InputEvent], None]] = None
 
         # ---------------------------
@@ -144,9 +151,9 @@ class CityPanel:
         # self.inputs.add_switch("transport_route_2", self.mcp1, 12)
         # self.inputs.add_switch("transport_route_3", self.mcp1, 13)
         # self.inputs.add_button("transport_reset", self.mcp1, 14)
-        self.inputs.add_encoder("medic_code_1", self.mcp1, pin_a=0, pin_b=1)
-        self.inputs.add_encoder("medic_code_2", self.mcp1, pin_a=2, pin_b=3)
-        self.inputs.add_encoder("medic_code_3", self.mcp1, pin_a=4, pin_b=5)
+        self.inputs.add_encoder("lock_encoder_1", self.mcp1, pin_a=0, pin_b=1)
+        self.inputs.add_encoder("lock_encoder_2", self.mcp1, pin_a=2, pin_b=3)
+        self.inputs.add_encoder("lock_encoder_3", self.mcp1, pin_a=4, pin_b=5)
 
         # CORE
         self.inputs.add_button("core_activate", self.mcp1, 6)
@@ -188,6 +195,17 @@ class CityPanel:
             self.inputs.update()
         if self.leds is not None:
             self.leds.update()
+        # Zamčený stav: 7-segmentový panel bliká "LOC", dokud se neodemkne.
+        # Má přednost před morse preview / animacemi.
+        if self._locked_blink and self.display7seg is not None:
+            now = time.monotonic()
+            if self._locked_toggle_at is not None and now >= self._locked_toggle_at:
+                self._locked_on = not self._locked_on
+                self._locked_toggle_at = now + self._locked_period
+                if self._locked_on:
+                    self.display7seg.set_text(self._locked_message)
+                else:
+                    self.display7seg.clear(show=True)
         if (
             self._display1_clear_at is not None
             and time.monotonic() >= self._display1_clear_at
@@ -269,9 +287,9 @@ class CityPanel:
 
         self.set_power_level(0, show=False)
         self.set_fragment_count(0, show=False)
-        self.set_encoder_letter("medic_code_1", 0, show=False)
-        self.set_encoder_letter("medic_code_2", 0, show=False)
-        self.set_encoder_letter("medic_code_3", 0, show=False)
+        self.set_encoder_letter("lock_encoder_1", 0, show=False)
+        self.set_encoder_letter("lock_encoder_2", 0, show=False)
+        self.set_encoder_letter("lock_encoder_3", 0, show=False)
 
         self.leds.update()
 
@@ -339,18 +357,18 @@ class CityPanel:
         self.display2.set_index_symbol(index)
 
     def set_encoder_display(self, encoder_name: str, index: int):
-        # All medic_code encoders share display2 (mounted upside down): whichever
+        # All lock_encoder encoders share display2 (mounted upside down): whichever
         # one moved last shows its value for 2 seconds, then display2 auto-clears.
-        #   medic_code_1 -> letter A..J
-        #   medic_code_2 -> digit 0..9
-        #   medic_code_3 -> symbol (10 custom glyphs)
-        if encoder_name == "medic_code_1":
+        #   lock_encoder_1 -> letter A..J
+        #   lock_encoder_2 -> digit 0..9
+        #   lock_encoder_3 -> symbol (10 custom glyphs)
+        if encoder_name == "lock_encoder_1":
             self.set_display2_letter_index(index)
             self._display2_clear_at = time.monotonic() + 2.0
-        elif encoder_name == "medic_code_2":
+        elif encoder_name == "lock_encoder_2":
             self.set_display2_char(str(index % 10))
             self._display2_clear_at = time.monotonic() + 2.0
-        elif encoder_name == "medic_code_3":
+        elif encoder_name == "lock_encoder_3":
             self.set_display2_symbol_index(index)
             self._display2_clear_at = time.monotonic() + 2.0
 
@@ -358,6 +376,29 @@ class CityPanel:
         if self.display7seg is None:
             return
         self.display7seg.set_text(text)
+
+    def set_display7seg_locked(self, locked: bool, message: Optional[str] = None):
+        """Zapne/vypne blikající 'locked' indikaci na 7-segmentovém panelu."""
+        if message is not None:
+            self._locked_message = message
+        self._locked_blink = locked
+        if not locked:
+            # Odemčeno: ukonči blikání a vrať se k živému morse náhledu.
+            self._locked_on = False
+            self._locked_toggle_at = None
+            if self.display7seg is not None:
+                self.display7seg.set_morse(self._last_morse_code)
+            return
+        # Zamčeno: zruš ostatní 7-seg stavy a začni blikat.
+        self._display7seg_revert_at = None
+        self._blink_deadline = None
+        self._blink_toggle_at = None
+        self._anim7seg_frames = None
+        self._anim7seg_next_at = None
+        self._locked_on = True
+        self._locked_toggle_at = time.monotonic() + self._locked_period
+        if self.display7seg is not None:
+            self.display7seg.set_text("LOC")
 
     def set_display7seg_morse(self, code: str):
         # Live preview of the morse selected by the 4 element switches. Held
@@ -368,6 +409,7 @@ class CityPanel:
             self._display7seg_revert_at is not None
             or self._blink_deadline is not None
             or self._anim7seg_frames is not None
+            or self._locked_blink
             or self.display7seg is None
         ):
             return

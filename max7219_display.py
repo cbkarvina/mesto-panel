@@ -253,6 +253,7 @@ SEGMENTS_7SEG: Dict[str, int] = {
     "H": 0x37,
     "I": 0x30,
     "J": 0x3C,
+    "K": 0x37,
     "L": 0x0E,
     "N": 0x15,
     "O": 0x7E,

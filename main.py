@@ -135,6 +135,11 @@ def main():
                     elif ev.type == "fragment_unlocked":
                         print(f"FRAGMENT UNLOCKED: {ev.payload['fragment']}")
 
+                    elif ev.type == "locked":
+                        panel.set_display7seg_locked(
+                            ev.payload["locked"], ev.payload.get("message")
+                        )
+
                     elif ev.type == "sound":
                         # Placeholder pro TTS / přednahrané zvuky.
                         print(f"SOUND: {ev.payload['clip']}")

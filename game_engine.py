@@ -13,6 +13,10 @@ class EngineEvent:
 # Finální hra dne — získání fragmentu Kódu města
 # ----------------------------------------------------------------------
 # Každý systém má svůj fragment, den v týdnu, místo na mapě a hlášení.
+LOCKED = {
+    "ledMessage": "LOCKED",
+    "word": ["heart", "1", "A"],
+}
 MISSIONS = {
     "power": {
         "day": "wednesday",
@@ -23,6 +27,7 @@ MISSIONS = {
     },
     "comms": {
         "day": "monday",
+        "ledMessage": "POSTA OK",
         "map": "POŠTA",
         "fragment": "COMMS-1",
         "word": "LANO",
@@ -81,6 +86,36 @@ MORSE_ALPHABET = {
 }
 MORSE_TO_LETTER = {code: ch for ch, code in MORSE_ALPHABET.items()}
 
+# Písmena kombinačních enkodérů (index 0-9 → A-J).
+ENCODER_LETTERS = "ABCDEFGHIJ"
+
+# Názvy symbolů v pořadí SYMBOLS z max7219_display.py (index = pozice enkodéru).
+SYMBOL_NAMES = [
+    "heart", "smiley", "star", "skull", "lightning",
+    "arrow_up", "key", "eye", "hourglass", "music",
+]
+
+
+def _lock_targets_from_word(word):
+    """Z hesla LOCKED['word'] odvodí cílové pozice (index 0-9) enkodérů
+    podle typu tokenu: číslice→lock_encoder_2, písmeno→lock_encoder_1,
+    název symbolu→lock_encoder_3."""
+    targets = {}
+    for token in word:
+        t = str(token)
+        if t.isdigit():
+            targets["lock_encoder_2"] = int(t) % 10
+        elif len(t) == 1 and t.upper() in ENCODER_LETTERS:
+            targets["lock_encoder_1"] = ENCODER_LETTERS.index(t.upper())
+        elif t.lower() in SYMBOL_NAMES:
+            targets["lock_encoder_3"] = SYMBOL_NAMES.index(t.lower())
+    return targets
+
+
+# Výchozí heslo zámku odvozené ze struktury LOCKED — hráč musí nastavit
+# tři enkodéry (písmeno / číslice / symbol) a potvrdit tlačítkem core_activate.
+LOCK_TARGETS = _lock_targets_from_word(LOCKED["word"])
+
 
 class GameEngine:
     def __init__(self):
@@ -120,25 +155,42 @@ class GameEngine:
 
         self.encoder_letters = list("ABCDEFGHIJ")
         self.encoder_positions = {
-            "medic_code_1": 0,
-            "medic_code_2": 0,
-            "medic_code_3": 0,
+            "lock_encoder_1": 0,
+            "lock_encoder_2": 0,
+            "lock_encoder_3": 0,
         }
+
+        # Panel startuje v zamčeném stavu — dokud se nezadá správná kombinace
+        # a nepotvrdí tlačítkem core_activate, systém nereaguje na ostatní vstupy.
+        self.locked = True
 
         self.pending_events.append(EngineEvent(
             "encoder_letter",
-            {"encoder": "medic_code_1", "index": 0}
+            {"encoder": "lock_encoder_1", "index": 0}
         ))
         self.pending_events.append(EngineEvent(
             "encoder_letter",
-            {"encoder": "medic_code_2", "index": 0}
+            {"encoder": "lock_encoder_2", "index": 0}
         ))
         self.pending_events.append(EngineEvent(
             "encoder_letter",
-            {"encoder": "medic_code_3", "index": 0}
+            {"encoder": "lock_encoder_3", "index": 0}
+        ))
+        # Rozblikej "locked" indikaci na 7-segmentovém panelu.
+        self.pending_events.append(EngineEvent(
+            "locked", {"locked": True, "message": LOCKED["ledMessage"]}
         ))
 
     def handle_panel_event(self, name: str, event_type: str, is_active: bool):
+        # V zamčeném stavu systém reaguje jen na kombinační enkodéry a na
+        # potvrzovací tlačítko core_activate. Ostatní vstupy se ignorují.
+        if self.locked:
+            if name.startswith("lock_encoder_") and event_type in ("rotated_cw", "rotated_ccw"):
+                self._rotate_encoder(name, event_type)
+            elif name == "core_activate" and event_type == "pressed":
+                self._try_unlock()
+            return
+
         power_changed = False
 
         if name == "power_hydro" and event_type == "changed":
@@ -160,14 +212,14 @@ class GameEngine:
         elif name == "power_stabilize" and event_type == "pressed":
             self._stabilize_power()
 
-        elif name == "medic_code_1" and event_type in ("rotated_cw", "rotated_ccw"):
-            self._rotate_encoder("medic_code_1", event_type)
+        elif name == "lock_encoder_1" and event_type in ("rotated_cw", "rotated_ccw"):
+            self._rotate_encoder("lock_encoder_1", event_type)
 
-        elif name == "medic_code_2" and event_type in ("rotated_cw", "rotated_ccw"):
-            self._rotate_encoder("medic_code_2", event_type)
+        elif name == "lock_encoder_2" and event_type in ("rotated_cw", "rotated_ccw"):
+            self._rotate_encoder("lock_encoder_2", event_type)
 
-        elif name == "medic_code_3" and event_type in ("rotated_cw", "rotated_ccw"):
-            self._rotate_encoder("medic_code_3", event_type)
+        elif name == "lock_encoder_3" and event_type in ("rotated_cw", "rotated_ccw"):
+            self._rotate_encoder("lock_encoder_3", event_type)
 
         elif name in ("fire", "medical", "police") and event_type == "pressed":
             self._handle_rescue_button(name)
@@ -262,17 +314,17 @@ class GameEngine:
             {"encoder": encoder_name, "index": self.encoder_positions[encoder_name]}
         ))
 
-        l1 = self._encoder_letter("medic_code_1")
-        d2 = self.encoder_positions["medic_code_2"] % 10
-        l3 = self._encoder_letter("medic_code_3")
+        l1 = self._encoder_letter("lock_encoder_1")
+        d2 = self.encoder_positions["lock_encoder_2"] % 10
+        l3 = self._encoder_letter("lock_encoder_3")
         self.pending_events.append(EngineEvent(
             "message",
-            {"text": f"Medic code: [{l1}] [{d2}] [{l3}]"}
+            {"text": f"Lock code: [{l1}] [{d2}] [{l3}]"}
         ))
 
     def _handle_medical_call(self):
-        l1 = self._encoder_letter("medic_code_1")
-        l2 = self._encoder_letter("medic_code_2")
+        l1 = self._encoder_letter("lock_encoder_1")
+        l2 = self._encoder_letter("lock_encoder_2")
 
         if l1 == l2:
             self._complete_mission("rescue")
@@ -291,6 +343,32 @@ class GameEngine:
                 "protocol",
                 detail="Core locked - missing code fragments",
             )
+
+    def _try_unlock(self):
+        """Ověří pozice enkodérů proti heslu LOCKED['word']."""
+        unlocked = all(
+            self.encoder_positions.get(name) == target
+            for name, target in LOCK_TARGETS.items()
+        )
+        password = " ".join(str(t) for t in LOCKED["word"])
+        if unlocked:
+            self.locked = False
+            self.pending_events.append(EngineEvent(
+                "message",
+                {"text": f"Panel odemčen! Heslo: {password}"}
+            ))
+            self.pending_events.append(EngineEvent("locked", {"locked": False}))
+            self.pending_events.append(EngineEvent("sound", {"clip": "success"}))
+            self.pending_events.append(EngineEvent(
+                "animation", {"kind": "success", "system": "core"}
+            ))
+        else:
+            self.pending_events.append(EngineEvent(
+                "message",
+                {"text": "Špatné heslo — panel zůstává zamčen."}
+            ))
+            self.pending_events.append(EngineEvent("sound", {"clip": "error"}))
+            self.pending_events.append(EngineEvent("animation", {"kind": "error"}))
 
     # ------------------------------------------------------------------
     # Finální mise / fragmenty / efekty

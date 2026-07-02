@@ -33,14 +33,14 @@ def test_rotary_encoders(
     enc2_pin_b = enc2_a if enc2_swap_ab else enc2_b
 
     inputs.add_encoder(
-        "medic_code_1",
+        "lock_encoder_1",
         mcp,
         pin_a=enc1_pin_a,
         pin_b=enc1_pin_b,
         reverse=enc1_reverse,
     )
     inputs.add_encoder(
-        "medic_code_2",
+        "lock_encoder_2",
         mcp,
         pin_a=enc2_pin_a,
         pin_b=enc2_pin_b,
@@ -48,8 +48,8 @@ def test_rotary_encoders(
     )
 
     positions = {
-        "medic_code_1": 0,
-        "medic_code_2": 0,
+        "lock_encoder_1": 0,
+        "lock_encoder_2": 0,
     }
 
     def _label(name: str) -> str:
@@ -68,12 +68,12 @@ def test_rotary_encoders(
         else:
             return
 
-        l1 = _label("medic_code_1")
-        l2 = _label("medic_code_2")
+        l1 = _label("lock_encoder_1")
+        l2 = _label("lock_encoder_2")
         match = "MATCH" if l1 == l2 else "----"
         print(
             f"{ev.name:12s} {direction:3s} -> "
-            f"medic_code_1={l1} medic_code_2={l2} {match}"
+            f"lock_encoder_1={l1} lock_encoder_2={l2} {match}"
         )
 
     inputs.on_event(_on_event)

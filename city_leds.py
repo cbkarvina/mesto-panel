@@ -276,14 +276,14 @@ class CityLeds:
         index: 0..9 where 0=A and 9=J.
         Exactly one LED is ON at a time.
         """
-        if encoder_name == "medic_code_1":
+        if encoder_name == "lock_encoder_1":
             segment_name = "encoder1_letters"
             on_color = CYAN
-        elif encoder_name == "medic_code_2":
+        elif encoder_name == "lock_encoder_2":
             segment_name = "encoder2_letters"
             on_color = MAGENTA
         else:
-            # Encoders without a dedicated LED letter bar (e.g. medic_code_3)
+            # Encoders without a dedicated LED letter bar (e.g. lock_encoder_3)
             # only drive the MAX7219 display, so there is nothing to light here.
             return
 
