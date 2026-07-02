@@ -149,6 +149,17 @@ def main():
                         if ev.payload.get("kind") == "unlock":
                             panel.play_unlock_anim()
 
+                    elif ev.type == "central_scan":
+                        leds = getattr(panel, "leds", None)
+                        if leds is not None:
+                            color = (0, 255, 0) if ev.payload.get("color") == "green" else (255, 0, 0)
+                            leds.set_central_scan(ev.payload["active"], color)
+
+                    elif ev.type == "central_bar":
+                        leds = getattr(panel, "leds", None)
+                        if leds is not None:
+                            leds.set_central_bar(ev.payload.get("fraction"))
+
                     elif ev.type == "display2_preview":
                         panel.show_display2_morse_preview(ev.payload.get("char"))
 

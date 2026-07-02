@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import time
 from dataclasses import dataclass, field
 from typing import List
 
@@ -119,6 +120,11 @@ def _lock_targets_from_word(word):
 # tři enkodéry (písmeno / číslice / symbol) a potvrdit tlačítkem core_activate.
 LOCK_TARGETS = _lock_targets_from_word(LOCKED["word"])
 
+# Odpočet stability jádra po odemčení panelu.
+COUNTDOWN_DURATION = 60.0            # délka odpočtu (s)
+UNLOCK_SCAN_TIME = 2.0              # délka zeleného Knight Rider intra (s)
+COUNTDOWN_BAR_EMIT_INTERVAL = 0.2  # jak často se posílá stav pruhu (s)
+
 
 class GameEngine:
     def __init__(self):
@@ -166,6 +172,14 @@ class GameEngine:
         # Panel startuje v zamčeném stavu — dokud se nezadá správná kombinace
         # a nepotvrdí tlačítkem core_activate, systém nereaguje na ostatní vstupy.
         self.locked = True
+
+        # Odpočet stability jádra (spustí se po odemčení panelu).
+        self.countdown_active = False
+        self.countdown_duration = COUNTDOWN_DURATION
+        self.countdown_start = 0.0
+        self.countdown_deadline = 0.0
+        self._countdown_bar_started = False
+        self._countdown_last_emit = 0.0
 
         self.pending_events.append(EngineEvent(
             "encoder_letter",
@@ -254,7 +268,67 @@ class GameEngine:
             ))
 
     def tick(self):
-        pass
+        if not self.countdown_active:
+            return
+        now = time.monotonic()
+        # Během zeleného Knight Rider intra se pruh ještě nekreslí.
+        if now < self.countdown_start:
+            return
+        if not self._countdown_bar_started:
+            self._countdown_bar_started = True
+            # Konec zeleného skeneru — začíná ubývající pruh, od teď běží 60 s.
+            self.countdown_deadline = now + self.countdown_duration
+            self._countdown_last_emit = 0.0
+            self.pending_events.append(EngineEvent("central_scan", {"active": False}))
+        remaining = self.countdown_deadline - now
+        if remaining <= 0:
+            self._on_countdown_expire()
+            return
+        if now - self._countdown_last_emit >= COUNTDOWN_BAR_EMIT_INTERVAL:
+            self._countdown_last_emit = now
+            self.pending_events.append(EngineEvent(
+                "central_bar", {"fraction": remaining / self.countdown_duration}
+            ))
+
+    def _start_countdown(self):
+        """Spustí minutový odpočet po zeleném Knight Rider intru."""
+        now = time.monotonic()
+        self.countdown_active = True
+        self.countdown_duration = COUNTDOWN_DURATION
+        self.countdown_start = now + UNLOCK_SCAN_TIME
+        self.countdown_deadline = self.countdown_start + self.countdown_duration
+        self._countdown_bar_started = False
+        self._countdown_last_emit = 0.0
+
+    def _reset_countdown(self):
+        """Odeslání morse kódu vynuluje odpočet na další minutu."""
+        if not self.countdown_active:
+            return
+        now = time.monotonic()
+        self.countdown_start = now
+        self.countdown_deadline = now + self.countdown_duration
+        self._countdown_bar_started = True
+        self._countdown_last_emit = now
+        self.pending_events.append(EngineEvent("central_scan", {"active": False}))
+        self.pending_events.append(EngineEvent("central_bar", {"fraction": 1.0}))
+        self.pending_events.append(EngineEvent(
+            "message", {"text": "Morse odeslán — odpočet resetován na 60 s."}
+        ))
+
+    def _on_countdown_expire(self):
+        """Vypršení odpočtu — jádro se znovu zamyká."""
+        self.countdown_active = False
+        self._countdown_bar_started = False
+        self.locked = True
+        self.pending_events.append(EngineEvent("central_bar", {"fraction": None}))
+        self.pending_events.append(EngineEvent(
+            "message", {"text": "Čas vypršel! Jádro se znovu zamyká."}
+        ))
+        self.pending_events.append(EngineEvent("sound", {"clip": "error"}))
+        self.pending_events.append(EngineEvent("animation", {"kind": "error"}))
+        self.pending_events.append(EngineEvent(
+            "locked", {"locked": True, "message": LOCKED["ledMessage"]}
+        ))
 
     def pop_events(self):
         events = self.pending_events[:]
@@ -363,6 +437,11 @@ class GameEngine:
             self.pending_events.append(EngineEvent("locked", {"locked": False}))
             # Jednorázová animace odemčení na displejích.
             self.pending_events.append(EngineEvent("display_anim", {"kind": "unlock"}))
+            # Zelený Knight Rider na central segmentu, pak minutový odpočet.
+            self.pending_events.append(EngineEvent(
+                "central_scan", {"active": True, "color": "green"}
+            ))
+            self._start_countdown()
             self.pending_events.append(EngineEvent("sound", {"clip": "success"}))
             self.pending_events.append(EngineEvent(
                 "animation", {"kind": "success", "system": "core"}
@@ -515,6 +594,9 @@ class GameEngine:
         if not word:
             self._fail_mission("invalid_code", detail="Morse: nezadáno žádné slovo.")
             return
+
+        # Odeslání kódu vynuluje odpočet stability jádra na další minutu.
+        self._reset_countdown()
 
         morse = " ".join(MORSE_ALPHABET.get(ch, "") for ch in word)
         self.pending_events.append(EngineEvent(

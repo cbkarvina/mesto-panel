@@ -115,7 +115,7 @@ class CityLeds:
 
         # Komunikační modul: LED z pásku slouží jako stavový indikátor.
         # Dokud není kód vyřešen → červeně bliká; po vyřešení → zeleně svítí.
-        self.comms_morse_led = 32
+        self.comms_morse_led = 33
         self.reserved_pixels = frozenset({self.comms_morse_led})
         self.comms_solved = False
         self.comms_blink_period = 0.6
@@ -124,6 +124,9 @@ class CityLeds:
         self.central_scan = False
         self.central_scan_period = 1.6   # čas jednoho tam-a-zpět přejezdu (s)
         self.central_scan_tail = 3.0     # šířka doznívajícího ohonu (v pixelech)
+        self.central_scan_color = RED    # barva skeneru (červená = zámek)
+        # Central segment: minutový odpočet stability jádra po odemčení.
+        self.central_bar_fraction: Optional[float] = None
 
     def add_segment(self, name: str, start: int, length: int):
         if start < 0 or length <= 0 or start + length > self.led_count:
@@ -159,17 +162,51 @@ class CityLeds:
             if show:
                 self.show()
 
-    def set_central_scan(self, active: bool, show: bool = True):
-        """Zapne/vypne červený Knight Rider skener na central segmentu.
+    def set_central_scan(self, active: bool, color: Color = RED, show: bool = True):
+        """Zapne/vypne Knight Rider skener na central segmentu.
 
-        Používá se jako indikace zamčeného stavu panelu.
+        color: barva skeneru (červená = zámek, zelená = oslava po odemčení).
         """
         self.central_scan = active
-        if not active:
+        self.central_scan_color = color
+        if active:
+            # Skener má přednost před odpočtovým pruhem.
+            self.central_bar_fraction = None
+        else:
             for i in self._segment_indices("central"):
                 self._set_pixel(i, BLACK)
             if show:
                 self.show()
+
+    def set_central_bar(self, fraction: Optional[float], show: bool = True):
+        """Minutový odpočet na central segmentu jako ubývající barevný pruh.
+
+        fraction 1.0..0.0 (zbývající čas); None = vypnout a zhasnout.
+        Barva: zelená → v 66 % oranžová → pod 20 % červená (s průběžným fadem).
+        """
+        if fraction is None:
+            self.central_bar_fraction = None
+            for i in self._segment_indices("central"):
+                self._set_pixel(i, BLACK)
+            if show:
+                self.show()
+            return
+        self.central_bar_fraction = max(0.0, min(1.0, fraction))
+
+    @staticmethod
+    def _countdown_bar_color(f: float) -> Color:
+        def lerp(c1: Color, c2: Color, t: float) -> Color:
+            t = max(0.0, min(1.0, t))
+            return (
+                int(c1[0] + (c2[0] - c1[0]) * t),
+                int(c1[1] + (c2[1] - c1[1]) * t),
+                int(c1[2] + (c2[2] - c1[2]) * t),
+            )
+        if f >= 0.66:
+            return lerp(ORANGE, GREEN, (f - 0.66) / (1.0 - 0.66))
+        if f >= 0.20:
+            return lerp(RED, ORANGE, (f - 0.20) / (0.66 - 0.20))
+        return RED
 
     def show(self):
         if self._show_disabled:
@@ -334,8 +371,10 @@ class CityLeds:
             seg = self.segments[name]
             override = self.segment_overrides.get(name)
 
-            # Central segment má v zamčeném stavu vlastní skener (viz níže).
-            if name == "central" and self.central_scan:
+            # Central segment má vlastní vykreslení (skener / odpočet, viz níže).
+            if name == "central" and (
+                self.central_scan or self.central_bar_fraction is not None
+            ):
                 continue
 
             if override is not None:
@@ -384,7 +423,7 @@ class CityLeds:
             phase = (now % self.comms_blink_period) / self.comms_blink_period
             self.pixels[self.comms_morse_led] = RED if phase < 0.5 else BLACK
 
-        # Central segment: červený Knight Rider (KITT) skener v zamčeném stavu.
+        # Central segment: Knight Rider skener nebo minutový odpočet.
         if self.central_scan:
             seg = self.segments["central"]
             span = seg.length - 1
@@ -397,7 +436,19 @@ class CityLeds:
             tail = self.central_scan_tail if self.central_scan_tail > 0 else 1.0
             for offset, i in enumerate(self._segment_indices("central")):
                 b = max(0.0, 1.0 - abs(offset - pos) / tail)
-                self._set_pixel(i, scale_color(RED, b))
+                self._set_pixel(i, scale_color(self.central_scan_color, b))
+        elif self.central_bar_fraction is not None:
+            seg = self.segments["central"]
+            color = self._countdown_bar_color(self.central_bar_fraction)
+            filled = self.central_bar_fraction * seg.length
+            for offset, i in enumerate(self._segment_indices("central")):
+                if offset + 1 <= filled:
+                    b = 1.0
+                elif offset < filled:
+                    b = filled - offset  # částečný pixel na čele pruhu (fade)
+                else:
+                    b = 0.0
+                self._set_pixel(i, scale_color(color, b))
 
         self.show()
         self._last_update = now
