@@ -95,8 +95,8 @@ class CityLeds:
     # Segment map
     # ------------------------------------------------------------
     def _setup_default_segments(self):
-        self.add_segment("power", 0, 8)
-        self.add_segment("power_bar", 8, 10)
+        self.add_segment("power", 100, 10)
+        self.add_segment("power_bar", 90, 10)
 
         self.add_segment("rescue", 18, 8)
         self.add_segment("comms", 26, 8)
@@ -106,10 +106,14 @@ class CityLeds:
         self.add_segment("alarm", 50, 8)
         self.add_segment("misc", 58, 6)
 
-        # Two 10-step letter indicators for EC11 encoders (0=A ... 9=J)
-        if self.led_count >= 84:
-            self.add_segment("encoder1_letters", 64, 10)
-            self.add_segment("encoder2_letters", 74, 10)
+        self.add_segment("encoder1_letters", 64, 10)
+        self.add_segment("encoder2_letters", 74, 10)
+
+        # Komunikační modul: první LED z pásku slouží jako Morse výstup.
+        # Rezervované pixely nikdy nepřepíše běžné vykreslování segmentů;
+        # ovládají se přímo (viz set_comms_led).
+        self.comms_morse_led = 10
+        self.reserved_pixels = frozenset({self.comms_morse_led})
 
     def add_segment(self, name: str, start: int, length: int):
         if start < 0 or length <= 0 or start + length > self.led_count:
@@ -124,6 +128,18 @@ class CityLeds:
     def _segment_indices(self, name: str) -> range:
         seg = self.segments[name]
         return range(seg.start, seg.start + seg.length)
+
+    def _set_pixel(self, index: int, color: Color):
+        """Zapíše pixel jen pokud není rezervovaný (viz reserved_pixels)."""
+        if index in self.reserved_pixels:
+            return
+        self.pixels[index] = color
+
+    def set_comms_led(self, color: Color, show: bool = True):
+        """Ovládá Morse LED komunikace (přímý zápis do rezervovaného pixelu)."""
+        self.pixels[self.comms_morse_led] = color
+        if show:
+            self.show()
 
     def show(self):
         if self._show_disabled:
@@ -141,14 +157,14 @@ class CityLeds:
 
     def clear(self, show: bool = True):
         for i in range(self.led_count):
-            self.pixels[i] = BLACK
+            self._set_pixel(i, BLACK)
         if show:
             self.show()
 
     def fill_segment(self, name: str, color: Color, show: bool = True):
         self.segment_overrides[name] = None
         for i in self._segment_indices(name):
-            self.pixels[i] = color
+            self._set_pixel(i, color)
         if show:
             self.show()
 
@@ -218,7 +234,7 @@ class CityLeds:
             else:
                 color = BLACK
 
-            self.pixels[i] = color
+            self._set_pixel(i, color)
             override.append(color)
 
         self.segment_overrides["power_bar"] = override
@@ -237,7 +253,7 @@ class CityLeds:
 
         for idx, i in enumerate(self._segment_indices("misc")):
             color = CYAN if idx < lit else BLACK
-            self.pixels[i] = color
+            self._set_pixel(i, color)
             override.append(color)
 
         self.segment_overrides["misc"] = override
@@ -270,7 +286,7 @@ class CityLeds:
 
         for offset, pixel_index in enumerate(self._segment_indices(segment_name)):
             color = on_color if offset == idx else BLACK
-            self.pixels[pixel_index] = color
+            self._set_pixel(pixel_index, color)
             override.append(color)
 
         self.segment_overrides[segment_name] = override
@@ -290,7 +306,7 @@ class CityLeds:
 
             if override is not None:
                 for offset, i in enumerate(range(seg.start, seg.start + seg.length)):
-                    self.pixels[i] = override[offset]
+                    self._set_pixel(i, override[offset])
                 continue
 
             if anim.mode == "off":
@@ -323,7 +339,7 @@ class CityLeds:
                 color = anim.color
 
             for i in range(seg.start, seg.start + seg.length):
-                self.pixels[i] = color
+                self._set_pixel(i, color)
 
         self.show()
         self._last_update = now
