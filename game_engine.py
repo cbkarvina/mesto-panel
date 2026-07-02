@@ -174,9 +174,11 @@ class GameEngine:
 
         elif name.startswith("morse_el_") and event_type == "changed":
             self.morse_element[int(name[-1]) - 1] = is_active
+            self._emit_morse_preview()
 
         elif name.startswith("morse_act_") and event_type == "changed":
             self.morse_active[int(name[-1]) - 1] = is_active
+            self._emit_morse_preview()
 
         elif name == "morse_add" and event_type == "pressed":
             self._morse_add_letter()
@@ -359,6 +361,12 @@ class GameEngine:
                 parts.append("-" if self.morse_element[i] else ".")
         return "".join(parts)
 
+    def _emit_morse_preview(self):
+        """Zobrazí na COMMS 7-segmentovce živý Morse podle přepínačů."""
+        self.pending_events.append(
+            EngineEvent("display7seg", {"morse": self._current_morse()})
+        )
+
     def _morse_add_letter(self):
         code = self._current_morse()
         if not code:
@@ -382,7 +390,6 @@ class GameEngine:
             "message",
             {"text": f"Morse: přidáno {letter} ({code}) → {self.morse_word}"}
         ))
-        self.pending_events.append(EngineEvent("display7seg", {"text": self.morse_word}))
 
     def _morse_delete(self):
         if self.morse_word:
@@ -392,7 +399,6 @@ class GameEngine:
                 "message",
                 {"text": f"Morse: smazáno {removed} → {self.morse_word or '(prázdné)'}"}
             ))
-        self.pending_events.append(EngineEvent("display7seg", {"text": self.morse_word}))
 
     def _morse_send(self):
         word = self.morse_word
@@ -405,6 +411,10 @@ class GameEngine:
             "message",
             {"text": f"Morse: vysílám '{word}'  [{morse}]"}
         ))
+        # Zobraz zadané slovo na 2 s, pak se displej vrátí k živému náhledu.
+        self.pending_events.append(EngineEvent(
+            "display7seg", {"word": word, "hold": 2.0}
+        ))
         # Přehrání celého slova na LED + bzučáku.
         self.pending_events.append(EngineEvent(
             "morse_play",
@@ -415,7 +425,6 @@ class GameEngine:
         if word.upper() == target:
             self._complete_mission("comms")
             self.morse_word = ""
-            self.pending_events.append(EngineEvent("display7seg", {"text": ""}))
         else:
             self._fail_mission("invalid_code", detail=f"Morse: zadáno '{word}'. Zkontroluj kód.")
 

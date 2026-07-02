@@ -160,7 +160,12 @@ def main():
                         panel.set_indicator(ev.payload["system"], (0, 255, 0), mode="solid")
 
                     elif ev.type == "display7seg":
-                        panel.set_display7seg_text(ev.payload["text"])
+                        if "word" in ev.payload:
+                            panel.show_display7seg_word(
+                                ev.payload["word"], ev.payload.get("hold", 2.0)
+                            )
+                        else:
+                            panel.set_display7seg_morse(ev.payload.get("morse", ""))
 
                     elif ev.type == "morse_play":
                         # Přehrání Morse slova na LED + bzučáku.

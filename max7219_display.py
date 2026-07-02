@@ -119,7 +119,8 @@ class Max7219Display:
 
     def __init__(self, bus: int = 0, device: int = 0, intensity: int = 4,
                  max_speed_hz: int = 1000000, chain: "Max7219Chain" = None,
-                 module_index: int = 0):
+                 module_index: int = 0, rotate180: bool = False):
+        self._rotate180 = rotate180
         if chain is not None:
             self._chain = chain
             self._module_index = module_index
@@ -185,9 +186,21 @@ class Max7219Display:
     def set_rows(self, rows: List[int], show: bool = True):
         if len(rows) != 8:
             raise ValueError("rows must have exactly 8 values")
-        self._rows = [r & 0xFF for r in rows]
+        rows = [r & 0xFF for r in rows]
+        if self._rotate180:
+            # 180° rotation = reverse row order + mirror each row horizontally.
+            rows = [self._reverse_byte(r) for r in reversed(rows)]
+        self._rows = rows
         if show:
             self.show()
+
+    @staticmethod
+    def _reverse_byte(value: int) -> int:
+        result = 0
+        for _ in range(8):
+            result = (result << 1) | (value & 1)
+            value >>= 1
+        return result
 
     def set_char(self, char: str, show: bool = True):
         c = (char or " ")[0].upper()
@@ -437,6 +450,25 @@ class Max7219SevenSegDisplay:
 
     def set_number(self, value: int, show: bool = True):
         self.set_text(str(value), show=show, right_align=True)
+
+    def set_morse(self, code: str, show: bool = True):
+        """Render a morse string on the 7-seg display.
+
+        '.' -> decimal point, '-' -> middle bar (segment G). One symbol per
+        digit, left-aligned across the 8 digits. Anything else is blank.
+        """
+        digits: List[int] = []
+        for ch in (code or "")[:8]:
+            if ch == "-":
+                digits.append(0x01)   # segment G (middle bar)
+            elif ch == ".":
+                digits.append(0x80)   # decimal point
+            else:
+                digits.append(0x00)
+        digits.extend([0x00] * (8 - len(digits)))
+        self._digits = digits[:8]
+        if show:
+            self.show()
 
     def set_bcd_digit(self, position: int, value: int, dot: bool = False, show: bool = True):
         """

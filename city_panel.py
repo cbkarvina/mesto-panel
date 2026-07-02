@@ -42,6 +42,11 @@ class CityPanel:
         }
         # When set, display1 is cleared once time.monotonic() reaches this value.
         self._display1_clear_at: Optional[float] = None
+        # When set, display2 is cleared once time.monotonic() reaches this value.
+        self._display2_clear_at: Optional[float] = None
+        # COMMS 7-seg: live morse preview + timed word display after submit.
+        self._display7seg_revert_at: Optional[float] = None
+        self._last_morse_code = ""
         self._event_callback: Optional[Callable[[InputEvent], None]] = None
 
         # ---------------------------
@@ -89,7 +94,7 @@ class CityPanel:
                     self.display = None
 
                 try:
-                    self.display2 = Max7219Display(chain=self.chain, module_index=1, intensity=4)
+                    self.display2 = Max7219Display(chain=self.chain, module_index=1, intensity=4, rotate180=True)
                     self.display2.set_char("A")
                 except Max7219DisplayError as exc:
                     print(f"MAX7219 display #2 disabled: {exc}")
@@ -180,6 +185,22 @@ class CityPanel:
             self._display1_clear_at = None
             if self.display is not None:
                 self.display.clear(show=True)
+        if (
+            self._display2_clear_at is not None
+            and time.monotonic() >= self._display2_clear_at
+        ):
+            self._display2_clear_at = None
+            if self.display2 is not None:
+                self.display2.clear(show=True)
+        # After a submitted word has been shown, revert the COMMS 7-seg back to
+        # the live morse preview of the current switch selection.
+        if (
+            self._display7seg_revert_at is not None
+            and time.monotonic() >= self._display7seg_revert_at
+        ):
+            self._display7seg_revert_at = None
+            if self.display7seg is not None:
+                self.display7seg.set_morse(self._last_morse_code)
 
     def loop_forever(self):
         while True:
@@ -273,26 +294,46 @@ class CityPanel:
             return
         self.display2.set_index_letter(index)
 
+    def set_display2_symbol_index(self, index: int):
+        if self.display2 is None:
+            return
+        self.display2.set_index_symbol(index)
+
     def set_encoder_display(self, encoder_name: str, index: int):
-        # All medic_code encoders share display1: whichever one moved last
-        # shows its value for 2 seconds, then display1 auto-clears.
+        # All medic_code encoders share display2 (mounted upside down): whichever
+        # one moved last shows its value for 2 seconds, then display2 auto-clears.
         #   medic_code_1 -> letter A..J
         #   medic_code_2 -> digit 0..9
         #   medic_code_3 -> symbol (10 custom glyphs)
         if encoder_name == "medic_code_1":
-            self.set_display_letter_index(index)
-            self._display1_clear_at = time.monotonic() + 2.0
+            self.set_display2_letter_index(index)
+            self._display2_clear_at = time.monotonic() + 2.0
         elif encoder_name == "medic_code_2":
-            self.set_display_char(str(index % 10))
-            self._display1_clear_at = time.monotonic() + 2.0
+            self.set_display2_char(str(index % 10))
+            self._display2_clear_at = time.monotonic() + 2.0
         elif encoder_name == "medic_code_3":
-            self.set_display_symbol_index(index)
-            self._display1_clear_at = time.monotonic() + 2.0
+            self.set_display2_symbol_index(index)
+            self._display2_clear_at = time.monotonic() + 2.0
 
     def set_display7seg_text(self, text: str):
         if self.display7seg is None:
             return
         self.display7seg.set_text(text)
+
+    def set_display7seg_morse(self, code: str):
+        # Live preview of the morse selected by the 4 element switches. Held
+        # back while a submitted word is being shown for its 2s window.
+        self._last_morse_code = code
+        if self._display7seg_revert_at is not None or self.display7seg is None:
+            return
+        self.display7seg.set_morse(code)
+
+    def show_display7seg_word(self, word: str, seconds: float = 2.0):
+        # Show the entered word for a fixed time, then revert to morse preview.
+        if self.display7seg is None:
+            return
+        self.display7seg.set_text(word)
+        self._display7seg_revert_at = time.monotonic() + seconds
 
     def set_display7seg_number(self, value: int):
         if self.display7seg is None:
