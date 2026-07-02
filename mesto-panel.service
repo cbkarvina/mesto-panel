@@ -11,7 +11,7 @@ Type=simple
 # Absolute path to the project directory on the Pi.
 WorkingDirectory=/home/rpi/mesto-panel
 # Use the venv's python directly (no need to `source activate`).
-ExecStart=/home/rpi/mesto-panel/env/bin/python3 /home/rpi/mesto-panel/main.py
+ExecStart=/root/env/bin/python3 /home/rpi/mesto-panel/main.py
 
 # WS2812B / SPI / GPIO access requires root.
 User=root
