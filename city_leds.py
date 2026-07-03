@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import time
+import random
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional
 
@@ -96,37 +97,25 @@ class CityLeds:
     # ------------------------------------------------------------
     def _setup_default_segments(self):
 
+        self.add_segment("countdown", 0, 10)
+        self.add_segment("encoder_color", 15, 5)
+        self.add_segment("core", 50, 15)
+        self.add_segment("power", 70, 15)
+        self.add_segment("rescue", 100, 15)
+        self.add_segment("comms", 120, 15)
+        self.add_segment("transport", 140, 15)
 
-        self.add_segment("central", 0, 22)
+        # Nic není rezervované (přímý zápis do LED je volný).
+        self.reserved_pixels = frozenset()
 
-        self.add_segment("power", 111, 2)
-        self.add_segment("power_bar", 113, 5)
+        # Odpočet (segment "countdown"): fade zelená → modrá dle zbývajícího času.
+        self.countdown_fraction: Optional[float] = None
 
-        self.add_segment("rescue", 118, 8)
-        self.add_segment("comms", 126, 8)
-        self.add_segment("transport", 134, 8)
-        self.add_segment("core", 142, 8)
-
-        self.add_segment("alarm", 150, 8)
-        self.add_segment("misc", 158, 6)
-
-        self.add_segment("encoder1_letters", 164, 10)
-        self.add_segment("encoder2_letters", 174, 10)
-
-        # Komunikační modul: LED z pásku slouží jako stavový indikátor.
-        # Dokud není kód vyřešen → červeně bliká; po vyřešení → zeleně svítí.
-        self.comms_morse_led = 33
-        self.reserved_pixels = frozenset({self.comms_morse_led})
-        self.comms_solved = False
-        self.comms_blink_period = 0.6
-
-        # Central segment: červený "Knight Rider" (KITT) skener v zamčeném stavu.
-        self.central_scan = False
-        self.central_scan_period = 1.6   # čas jednoho tam-a-zpět přejezdu (s)
-        self.central_scan_tail = 3.0     # šířka doznívajícího ohonu (v pixelech)
-        self.central_scan_color = RED    # barva skeneru (červená = zámek)
-        # Central segment: minutový odpočet stability jádra po odemčení.
-        self.central_bar_fraction: Optional[float] = None
+        # Městské oblasti: dokud nejsou odemčené, náhodně blikají červeně.
+        self.locked_segments = {"core", "power", "rescue", "comms", "transport"}
+        self.locked_flicker_period = 0.12   # jak často se přegeneruje vzor (s)
+        self._locked_flicker_at = 0.0
+        self._locked_pattern: Dict[int, bool] = {}
 
     def add_segment(self, name: str, start: int, length: int):
         if start < 0 or length <= 0 or start + length > self.led_count:
@@ -148,65 +137,36 @@ class CityLeds:
             return
         self.pixels[index] = color
 
-    def set_comms_led(self, color: Color, show: bool = True):
-        """Přímý zápis do rezervované stavové LED komunikace."""
-        self.pixels[self.comms_morse_led] = color
+    def set_color_leds(self, color: Color, show: bool = True):
+        """Barva zvolená tlačítkem button_color na segmentu 'encoder_color'."""
+        self.set_segment("encoder_color", color, mode="solid")
         if show:
             self.show()
 
-    def set_comms_solved(self, solved: bool, show: bool = True):
-        """Stav komunikačního kódu: True = vyřešeno (zelená), False = bliká červeně."""
-        self.comms_solved = solved
-        if solved:
-            self.pixels[self.comms_morse_led] = GREEN
-            if show:
-                self.show()
-
     def set_central_scan(self, active: bool, color: Color = RED, show: bool = True):
-        """Zapne/vypne Knight Rider skener na central segmentu.
-
-        color: barva skeneru (červená = zámek, zelená = oslava po odemčení).
-        """
-        self.central_scan = active
-        self.central_scan_color = color
-        if active:
-            # Skener má přednost před odpočtovým pruhem.
-            self.central_bar_fraction = None
-        else:
-            for i in self._segment_indices("central"):
-                self._set_pixel(i, BLACK)
-            if show:
-                self.show()
+        """Ponecháno pro kompatibilitu událostí — skener nahrazen náhodným
+        červeným blikáním zamčených oblastí, takže tady není co dělat."""
+        return
 
     def set_central_bar(self, fraction: Optional[float], show: bool = True):
-        """Minutový odpočet na central segmentu jako ubývající barevný pruh.
+        """Odpočet na segmentu 'countdown': fade zelená → modrá.
 
-        fraction 1.0..0.0 (zbývající čas); None = vypnout a zhasnout.
-        Barva: zelená → v 66 % oranžová → pod 20 % červená (s průběžným fadem).
+        fraction 1.0 = zelená (plný čas) → 0.0 = modrá (konec); None = zhasnout.
         """
         if fraction is None:
-            self.central_bar_fraction = None
-            for i in self._segment_indices("central"):
-                self._set_pixel(i, BLACK)
-            if show:
-                self.show()
+            self.countdown_fraction = None
+            self.clear_segment("countdown", show=show)
             return
-        self.central_bar_fraction = max(0.0, min(1.0, fraction))
+        self.countdown_fraction = max(0.0, min(1.0, fraction))
 
     @staticmethod
-    def _countdown_bar_color(f: float) -> Color:
-        def lerp(c1: Color, c2: Color, t: float) -> Color:
-            t = max(0.0, min(1.0, t))
-            return (
-                int(c1[0] + (c2[0] - c1[0]) * t),
-                int(c1[1] + (c2[1] - c1[1]) * t),
-                int(c1[2] + (c2[2] - c1[2]) * t),
-            )
-        if f >= 0.66:
-            return lerp(ORANGE, GREEN, (f - 0.66) / (1.0 - 0.66))
-        if f >= 0.20:
-            return lerp(RED, ORANGE, (f - 0.20) / (0.66 - 0.20))
-        return RED
+    def _lerp(c1: Color, c2: Color, t: float) -> Color:
+        t = max(0.0, min(1.0, t))
+        return (
+            int(c1[0] + (c2[0] - c1[0]) * t),
+            int(c1[1] + (c2[1] - c1[1]) * t),
+            int(c1[2] + (c2[2] - c1[2]) * t),
+        )
 
     def show(self):
         if self._show_disabled:
@@ -260,73 +220,18 @@ class CityLeds:
     # High-level system statuses
     # ------------------------------------------------------------
     def set_system_status(self, system_name: str, status: str, animate: bool = True):
+        """Stav městské oblasti.
+
+        'ok'/'repaired' → oblast odemčena (zelená, přestane blikat); jakýkoli
+        jiný stav → oblast zůstává zamčená a náhodně červeně bliká.
         """
-        status:
-          ok, warning, failure, offline, repaired, locked
-        """
-        if status == "ok":
+        if system_name not in self.segments:
+            return
+        if status in ("ok", "repaired"):
+            self.locked_segments.discard(system_name)
             self.set_segment(system_name, GREEN, "solid")
-        elif status == "warning":
-            self.set_segment(system_name, YELLOW, "solid")
-        elif status == "failure":
-            mode = "blink" if animate else "solid"
-            self.set_segment(system_name, RED, mode, period=0.6)
-        elif status == "offline":
-            self.set_segment(system_name, DIM_BLUE, "solid")
-        elif status == "repaired":
-            self.set_segment(system_name, CYAN, "pulse", period=1.2)
-        elif status == "locked":
-            self.set_segment(system_name, MAGENTA, "solid")
         else:
-            self.set_segment(system_name, WHITE, "solid")
-
-    def set_power_level(self, percent: int, show: bool = True):
-        """
-        Display power level on segment 'power_bar'
-        """
-        percent = max(0, min(100, percent))
-        seg = self.segments["power_bar"]
-        lit = round(seg.length * percent / 100)
-        override: List[Color] = []
-
-        for idx, i in enumerate(self._segment_indices("power_bar")):
-            if idx < lit:
-                # choose color by level
-                if percent < 40:
-                    color = RED
-                elif percent < 70:
-                    color = YELLOW
-                else:
-                    color = GREEN
-            else:
-                color = BLACK
-
-            self._set_pixel(i, color)
-            override.append(color)
-
-        self.segment_overrides["power_bar"] = override
-
-        if show:
-            self.show()
-
-    def set_fragment_count(self, count: int, max_count: int = 5, show: bool = True):
-        """
-        Example use of 'misc' segment to show found fragments.
-        """
-        count = max(0, min(count, max_count))
-        seg = self.segments["misc"]
-        lit = min(seg.length, count)
-        override: List[Color] = []
-
-        for idx, i in enumerate(self._segment_indices("misc")):
-            color = CYAN if idx < lit else BLACK
-            self._set_pixel(i, color)
-            override.append(color)
-
-        self.segment_overrides["misc"] = override
-
-        if show:
-            self.show()
+            self.locked_segments.add(system_name)
 
     def set_encoder_letter(self, encoder_name: str, index: int, show: bool = True):
         """
@@ -371,10 +276,10 @@ class CityLeds:
             seg = self.segments[name]
             override = self.segment_overrides.get(name)
 
-            # Central segment má vlastní vykreslení (skener / odpočet, viz níže).
-            if name == "central" and (
-                self.central_scan or self.central_bar_fraction is not None
-            ):
+            # Countdown a zamčené oblasti mají vlastní vykreslení (viz níže).
+            if name == "countdown" and self.countdown_fraction is not None:
+                continue
+            if name in self.locked_segments:
                 continue
 
             if override is not None:
@@ -414,46 +319,22 @@ class CityLeds:
             for i in range(seg.start, seg.start + seg.length):
                 self._set_pixel(i, color)
 
-        # Stavová LED komunikace: vyřešeno = zelená, jinak červené blikání.
-        if self.comms_solved:
-            self.pixels[self.comms_morse_led] = GREEN
-        elif self.comms_blink_period <= 0:
-            self.pixels[self.comms_morse_led] = RED
-        else:
-            phase = (now % self.comms_blink_period) / self.comms_blink_period
-            self.pixels[self.comms_morse_led] = RED if phase < 0.5 else BLACK
+        # Odpočet (segment "countdown"): fade zelená → modrá.
+        if self.countdown_fraction is not None:
+            color = self._lerp(GREEN, BLUE, 1.0 - self.countdown_fraction)
+            for i in self._segment_indices("countdown"):
+                self._set_pixel(i, color)
 
-        # Central segment: Knight Rider skener nebo minutový odpočet.
-        if self.central_scan:
-            seg = self.segments["central"]
-            span = seg.length - 1
-            if span <= 0 or self.central_scan_period <= 0:
-                pos = 0.0
-            else:
-                phase = (now % self.central_scan_period) / self.central_scan_period
-                # Trojúhelníková vlna: 0 → span → 0 (ping-pong).
-                pos = phase * 2 * span if phase < 0.5 else (1.0 - (phase - 0.5) * 2) * span
-            tail = self.central_scan_tail if self.central_scan_tail > 0 else 1.0
-            for offset, i in enumerate(self._segment_indices("central")):
-                b = max(0.0, 1.0 - abs(offset - pos) / tail)
-                self._set_pixel(i, scale_color(self.central_scan_color, b))
-        elif self.central_bar_fraction is not None:
-            seg = self.segments["central"]
-            color = self._countdown_bar_color(self.central_bar_fraction)
-            # Odpočet pozpátku: pruh ubývá od LED 0 (zhasne první) k LED 22
-            # (svítí nejdéle, ≈ poslední %). Plný pruh = 100 %.
-            filled = self.central_bar_fraction * seg.length
-            indices = self._segment_indices("central")
-            last = seg.length - 1
-            for offset in range(seg.length):
-                if offset + 1 <= filled:
-                    b = 1.0
-                elif offset < filled:
-                    b = filled - offset  # částečný pixel na čele pruhu (fade)
-                else:
-                    b = 0.0
-                # zrcadlení: nejjasnější konec pruhu je u LED 22
-                self._set_pixel(indices[last - offset], scale_color(color, b))
+        # Zamčené oblasti: náhodné červené blikání (vzor se přegeneruje periodicky).
+        if now >= self._locked_flicker_at:
+            self._locked_flicker_at = now + self.locked_flicker_period
+            self._locked_pattern = {}
+            for name in self.locked_segments:
+                for i in self._segment_indices(name):
+                    self._locked_pattern[i] = random.random() < 0.4
+        for name in self.locked_segments:
+            for i in self._segment_indices(name):
+                self._set_pixel(i, RED if self._locked_pattern.get(i) else BLACK)
 
         self.show()
         self._last_update = now

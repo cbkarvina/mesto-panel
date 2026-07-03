@@ -115,11 +115,6 @@ def main():
                 for ev in engine.pop_events():
                     if ev.type == "system_status":
                         panel.set_system_status(ev.payload["system"], ev.payload["status"])
-                        # Stavová LED komunikace: zelená po vyřešení kódu.
-                        if ev.payload["system"] == "comms":
-                            leds = getattr(panel, "leds", None)
-                            if leds is not None:
-                                leds.set_comms_solved(ev.payload["status"] == "ok")
 
                     elif ev.type == "encoder_letter":
                         panel.set_encoder_letter(
@@ -132,10 +127,10 @@ def main():
                         )
 
                     elif ev.type == "color_select":
-                        # Vybraná barva (tlačítko button_color) — zobraz na LED.
+                        # Vybraná barva (tlačítko button_color) → prvních 5 LED.
                         leds = getattr(panel, "leds", None)
                         if leds is not None:
-                            leds.set_segment("misc", tuple(ev.payload["rgb"]), mode="solid")
+                            leds.set_color_leds(tuple(ev.payload["rgb"]))
 
                     elif ev.type == "dead":
                         # Vypršel odpočet — systém přestal reagovat (blikne DEAD).

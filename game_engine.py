@@ -135,7 +135,7 @@ COLOR_RGB = {
 }
 
 # Globální odpočet po startu systému. Po jeho vypršení panel přestane reagovat.
-COUNTDOWN_DURATION = 30 * 60.0     # 30 minut (s)
+COUNTDOWN_DURATION = 1 * 60.0     # 1 minuta (s)
 COUNTDOWN_BAR_EMIT_INTERVAL = 0.5  # jak často se posílá stav pruhu (s)
 
 # Chybové hlášení při neplatném řídicím kódu.
@@ -231,6 +231,11 @@ class GameEngine:
                 self.morse_symbols[i] = bool(
                     switch_states.get(f"morse_pos_{i + 1}", False)
                 )
+        # Zobraz výchozí barvu na prvních 5 LED (indikátor button_color).
+        color = self.current_color()
+        self.pending_events.append(EngineEvent(
+            "color_select", {"color": color, "rgb": COLOR_RGB[color]}
+        ))
 
     # ------------------------------------------------------------------
     # Zpracování vstupů

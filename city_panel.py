@@ -277,19 +277,9 @@ class CityPanel:
         if self.leds is None:
             return
         self.leds.clear(show=False)
-
-        self.set_system_status("power", "failure", animate=False)
-        self.set_system_status("rescue", "warning")
-        self.set_system_status("comms", "offline")
-        self.set_system_status("transport", "offline")
-        self.set_system_status("core", "locked")
-
-        self.set_power_level(0, show=False)
-        self.set_fragment_count(0, show=False)
-        self.set_encoder_letter("encoder_number", 0, show=False)
-        self.set_encoder_letter("encoder_glyph", 0, show=False)
-        self.set_encoder_letter("encoder_letter", 0, show=False)
-
+        # 5 městských oblastí (core/power/rescue/comms/transport) náhodně
+        # červeně bliká, dokud se neodemknou — výchozí stav CityLeds.locked_segments,
+        # takže stačí nechat běžet update().
         self.leds.update()
 
     def set_system_status(self, system_name: str, status: str, animate: bool = True):
@@ -297,29 +287,19 @@ class CityPanel:
             raise RuntimeError("Panel LEDs are not initialized")
         self.leds.set_system_status(system_name, status, animate=animate)
 
-    def set_power_level(self, percent: int, show: bool = True):
-        if self.leds is None:
-            raise RuntimeError("Panel LEDs are not initialized")
-        self.leds.set_power_level(percent, show=show)
-
-    def set_fragment_count(self, count: int, max_count: int = 5, show: bool = True):
-        if self.leds is None:
-            raise RuntimeError("Panel LEDs are not initialized")
-        self.leds.set_fragment_count(count, max_count=max_count, show=show)
-
     def set_encoder_letter(self, encoder_name: str, index: int, show: bool = True):
         if self.leds is None:
             raise RuntimeError("Panel LEDs are not initialized")
         self.leds.set_encoder_letter(encoder_name, index, show=show)
 
     def flash_alarm(self, system_name: str):
-        if self.leds is None:
-            raise RuntimeError("Panel LEDs are not initialized")
+        if self.leds is None or system_name not in self.leds.segments:
+            return
         self.leds.flash_alarm(system_name)
 
     def set_indicator(self, name: str, color, mode: str = "solid"):
-        if self.leds is None:
-            raise RuntimeError("Panel LEDs are not initialized")
+        if self.leds is None or name not in self.leds.segments:
+            return
         self.leds.set_segment(name, color, mode=mode)
 
     # ------------------------------------------------------------------
