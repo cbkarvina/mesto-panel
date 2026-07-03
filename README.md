@@ -92,7 +92,7 @@ sudo -E env PATH="$PATH" python3 main.py
 | ------ | ----------------- | ------------------------------------------------------------------------------------------------- |
 | GET    | /api/status       | systémy, countdown, delka morseovky                                                               |
 | GET    | /api/inputs       | stav tlačítek/přepínačů + pozice enkodérů                                                         |
-| GET    | /api/leds         | logický stav LED (oblasti, zamčené segmenty, odpočet, barva)                                    |
+| GET    | /api/leds         | logický stav LED (oblasti, zamčené segmenty, odpočet, barva)                                      |
 | POST   | /api/unlock/{day} | 1-5                                                                                               |
 | POST   | /api/lock/{day}   | 1-5, body: { "morse": "M", "color": "red", "number": 1, "letter": "A", "glyph": SYMBOL_NAMES[0] } |
 | POST   | /api/restart      | body: {countdown: int seconds}                                                                    |
