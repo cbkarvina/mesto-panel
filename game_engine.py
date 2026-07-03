@@ -23,7 +23,7 @@ UNITS = {
         "code": {
             "morse": "M",
             "color": "red",
-            "number": 1,
+            "number": 0,
             "letter": "A",
             "glyph": SYMBOL_NAMES[0]
         }
