@@ -115,7 +115,7 @@ COLORS_EN = ["red", "yellow", "green", "cyan", "blue",
              "magenta", "white", "black"]
 COLOR_RGB = {
     "red": (255, 0, 0),
-    "yellow": (255, 255, 0),
+    "yellow": (255, 180, 0),
     "green": (0, 255, 0),
     "cyan": (0, 255, 255),
     "blue": (0, 0, 255),

@@ -88,18 +88,20 @@ sudo -E env PATH="$PATH" python3 main.py
 
 `main.py` spouští Flask REST API v pozadí (daemon vlákno, port 5000). Všechen přístup k hardwaru je serializovaný sdíleným zámkem, takže API běží ve stejném procesu jako panelová smyčka.
 
-| Metoda | Endpoint             | Popis                                        |
-| ------ | -------------------- | -------------------------------------------- |
-| GET    | /api/status          | systémy, výkon, fragmenty, pozice enkodérů   |
-| GET    | /api/inputs          | stav tlačítek/přepínačů + pozice enkodérů    |
-| GET    | /api/leds            | logický stav LED (systémy, výkon, fragmenty) |
-| POST   | /api/system/status   | tělo `{"system","status"}`                   |
-| POST   | /api/fragment/unlock | tělo `{"fragment"}`                          |
-| POST   | /api/mission/start   | zatím neimplementováno (501)                 |
+| Metoda | Endpoint          | Popis                                                                                             |
+| ------ | ----------------- | ------------------------------------------------------------------------------------------------- |
+| GET    | /api/status       | systémy, countdown, delka morseovky                                                               |
+| GET    | /api/inputs       | stav tlačítek/přepínačů + pozice enkodérů                                                         |
+| GET    | /api/leds         | logický stav LED (systémy, výkon, fragmenty)                                                      |
+| POST   | /api/unlock/{day} | 1-5                                                                                               |
+| POST   | /api/lock/{day}   | 1-5, body: { "morse": "M", "color": "red", "number": 1, "letter": "A", "glyph": SYMBOL_NAMES[0] } |
+| POST   | /api/restart      | body: {countdown: int seconds}                                                                    |
 
 ```
 curl http://<rpi>:5000/api/status
-curl -X POST http://<rpi>:5000/api/system/status \
+curl -X POST http://<rpi>:5000/api/unlock/1 \
+     -H 'Content-Type: application/json'
+curl -X POST http://<rpi>:5000/api/lock/1 \
      -H 'Content-Type: application/json' \
      -d '{"system":"power","status":"ok"}'
 ```
