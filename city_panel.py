@@ -35,7 +35,6 @@ class CityPanel:
         self.chain = None
         self.display = None
         self.display2 = None
-        self.display3 = None
         self.display7seg = None
         self._encoder_display_state = {
             "encoder_number": 0,
@@ -98,14 +97,15 @@ class CityPanel:
         # MAX7219 display layer
         # ---------------------------
         if init_display:
-            # All four MAX7219 modules are daisy-chained on a single SPI line.
+            # All three MAX7219 modules are daisy-chained on a single SPI line.
             # Order from the Pi's MOSI/DIN (module 0 = closest):
-            #   module 0 = matrix #1 (encoder_number, letter A..J)
-            #   module 1 = matrix #2 (encoder_glyph, digit 0..9)
-            #   module 2 = matrix #3 (encoder_letter, symbol)
-            #   module 3 = 7-segment (COMMS morse)
+            #   module 0 = matrix #1 ("first chip")  -> encoder_number (letter)
+            #                                           a encoder_glyph (digit)
+            #                                           se střídají na této matici
+            #   module 1 = matrix #2 ("second chip") -> encoder_letter (symbol)
+            #   module 2 = 7-segment                 -> COMMS morse
             try:
-                self.chain = Max7219Chain(bus=0, device=0, num_modules=4)
+                self.chain = Max7219Chain(bus=0, device=0, num_modules=3)
             except Max7219DisplayError as exc:
                 print(f"MAX7219 chain disabled: {exc}")
                 self.chain = None
@@ -126,14 +126,7 @@ class CityPanel:
                     self.display2 = None
 
                 try:
-                    self.display3 = Max7219Display(chain=self.chain, module_index=2, intensity=4)
-                    self.display3.set_char("A")
-                except Max7219DisplayError as exc:
-                    print(f"MAX7219 display #3 disabled: {exc}")
-                    self.display3 = None
-
-                try:
-                    self.display7seg = Max7219SevenSegDisplay(chain=self.chain, module_index=3, intensity=4)
+                    self.display7seg = Max7219SevenSegDisplay(chain=self.chain, module_index=2, intensity=4)
                     self.display7seg.clear()
                 except Max7219DisplayError as exc:
                     print(f"MAX7219 7-seg display disabled: {exc}")
@@ -207,8 +200,6 @@ class CityPanel:
                         self.display.clear(show=True)
                     if self.display2 is not None:
                         self.display2.clear(show=True)
-                    if self.display3 is not None:
-                        self.display3.clear(show=True)
                     if self.display7seg is not None:
                         self.display7seg.set_morse(self._last_morse_code)
                 else:
@@ -364,21 +355,6 @@ class CityPanel:
             return
         self.display2.set_index_symbol(index)
 
-    def set_display3_char(self, char: str):
-        if self.display3 is None:
-            return
-        self.display3.set_char(char)
-
-    def set_display3_letter_index(self, index: int):
-        if self.display3 is None:
-            return
-        self.display3.set_index_letter(index)
-
-    def set_display3_symbol_index(self, index: int):
-        if self.display3 is None:
-            return
-        self.display3.set_index_symbol(index)
-
     def show_display2_morse_preview(self, char: Optional[str], seconds: float = 2.0):
         """Náhled dekódovaného morse znaku na display2 na pár sekund.
 
@@ -394,16 +370,16 @@ class CityPanel:
             self._display2_clear_at = None
 
     def set_encoder_display(self, encoder_name: str, index: int):
-        # Každý enkodér má vlastní matici a jeho hodnota zůstává trvale zobrazená:
-        #   encoder_number -> matice #1 (display)  : písmeno A..J
-        #   encoder_glyph  -> matice #2 (display2) : číslice 0..9
-        #   encoder_letter -> matice #3 (display3) : symbol (10 vlastních glyfů)
+        # 2 matice + 7-segment v jednom řetězci:
+        #   encoder_number (písmeno A..J) a encoder_glyph (číslice 0..9) se
+        #     střídají na první matici (display) — vidět je naposledy otočený.
+        #   encoder_letter (symbol) má druhou matici (display2).
         if encoder_name == "encoder_number":
             self.set_display_letter_index(index)
         elif encoder_name == "encoder_glyph":
-            self.set_display2_char(str(index % 10))
+            self.set_display_char(str(index % 10))
         elif encoder_name == "encoder_letter":
-            self.set_display3_symbol_index(index)
+            self.set_display2_symbol_index(index)
 
     def set_display7seg_text(self, text: str):
         if self.display7seg is None:
@@ -469,8 +445,6 @@ class CityPanel:
                 self.display.set_rows(rows)
             if self.display2 is not None:
                 self.display2.set_rows(rows)
-            if self.display3 is not None:
-                self.display3.set_rows(rows)
         if seg is not None and self.display7seg is not None:
             self.display7seg.set_text(seg)
 
@@ -570,11 +544,15 @@ class CityPanel:
     def show_initial_state(self):
         """Při startu načte stav vstupů a zobrazí je do panelů:
 
-        - každý enkodér svou výchozí hodnotu (index 0) na vlastní matici,
+        - první matice (písmeno/číslice sdílené) ukáže výchozí písmeno A,
+        - druhá matice ukáže výchozí symbol,
         - morse podle fyzického stavu 5 přepínačů na 7-segmentovém panelu.
         """
-        self.set_encoder_display("encoder_number", 0)
+        # První matici sdílí encoder_number a encoder_glyph; při startu
+        # zobraz výchozí písmeno (encoder_glyph zavolej první, ať zůstane
+        # vidět písmeno z encoder_number).
         self.set_encoder_display("encoder_glyph", 0)
+        self.set_encoder_display("encoder_number", 0)
         self.set_encoder_display("encoder_letter", 0)
         self.set_display7seg_morse(self.read_morse_code())
 
@@ -591,8 +569,6 @@ class CityPanel:
             self.display.close()
         if self.display2 is not None:
             self.display2.close()
-        if self.display3 is not None:
-            self.display3.close()
         if self.display7seg is not None:
             self.display7seg.close()
         if self.chain is not None:
