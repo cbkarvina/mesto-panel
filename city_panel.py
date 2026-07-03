@@ -30,7 +30,6 @@ class CityPanel:
         init_display: bool = True,
     ):
         self.mcp1 = None
-        self.mcp2 = None
         self.inputs = None
         self.leds = None
         self.chain = None
@@ -78,7 +77,6 @@ class CityPanel:
         # ---------------------------
         if init_inputs:
             self.mcp1 = MCP23017(address=0x20, busnum=1)
-            self.mcp2 = MCP23017(address=0x21, busnum=1)
      
             self.inputs = PanelInputs(poll_interval_ms=5)
             self._setup_inputs()
@@ -588,9 +586,7 @@ class CityPanel:
             pass
 
         if self.mcp1 is not None:
-            self.mcp1.close()
-        if self.mcp2 is not None:
-            self.mcp2.close()
+            self.mcp1.close() 
         if self.display is not None:
             self.display.close()
         if self.display2 is not None:
