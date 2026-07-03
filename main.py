@@ -83,6 +83,11 @@ def main():
 
     panel.set_event_callback(on_panel_event)
 
+    # Načti počáteční stav vstupů a zobraz ho do panelů: každý enkodér svou
+    # výchozí hodnotu na vlastní matici a morse podle 5 přepínačů na 7-segmentovku.
+    engine.sync_initial_state(panel.read_morse_switches())
+    panel.show_initial_state()
+
     # Start the REST API in a background daemon thread (same process).
     start_api_thread(panel, engine, engine_lock, host="0.0.0.0", port=5000)
 
@@ -116,12 +121,6 @@ def main():
                             if leds is not None:
                                 leds.set_comms_solved(ev.payload["status"] == "ok")
 
-                    elif ev.type == "power_level":
-                        panel.set_power_level(ev.payload["percent"])
-
-                    elif ev.type == "fragment_count":
-                        panel.set_fragment_count(ev.payload["count"])
-
                     elif ev.type == "encoder_letter":
                         panel.set_encoder_letter(
                             ev.payload["encoder"],
@@ -132,18 +131,20 @@ def main():
                             ev.payload["index"],
                         )
 
-                    elif ev.type == "fragment_unlocked":
-                        print(f"FRAGMENT UNLOCKED: {ev.payload['fragment']}")
-
-                    elif ev.type == "locked":
-                        locked = ev.payload["locked"]
-                        panel.set_display7seg_locked(
-                            locked, ev.payload.get("message")
-                        )
-                        # Červený Knight Rider skener na central segmentu při zámku.
+                    elif ev.type == "color_select":
+                        # Vybraná barva (tlačítko button_color) — zobraz na LED.
                         leds = getattr(panel, "leds", None)
                         if leds is not None:
-                            leds.set_central_scan(locked)
+                            leds.set_segment("misc", tuple(ev.payload["rgb"]), mode="solid")
+
+                    elif ev.type == "dead":
+                        # Vypršel odpočet — systém přestal reagovat (blikne DEAD).
+                        panel.set_display7seg_locked(
+                            True, ev.payload.get("message", "DEAD")
+                        )
+                        leds = getattr(panel, "leds", None)
+                        if leds is not None:
+                            leds.set_central_scan(False)
 
                     elif ev.type == "display_anim":
                         if ev.payload.get("kind") == "unlock":
@@ -159,9 +160,6 @@ def main():
                         leds = getattr(panel, "leds", None)
                         if leds is not None:
                             leds.set_central_bar(ev.payload.get("fraction"))
-
-                    elif ev.type == "display2_preview":
-                        panel.show_display2_morse_preview(ev.payload.get("char"))
 
                     elif ev.type == "sound":
                         # Placeholder pro TTS / přednahrané zvuky.
@@ -182,21 +180,9 @@ def main():
                         panel.set_indicator(ev.payload["system"], (0, 255, 0), mode="solid")
 
                     elif ev.type == "display7seg":
-                        if "word" in ev.payload:
-                            panel.show_display7seg_word(
-                                ev.payload["word"], ev.payload.get("hold", 2.0)
-                            )
-                        elif "anim" in ev.payload:
-                            panel.play_display7seg_clear_anim()
-                        elif "blink_morse" in ev.payload:
-                            panel.blink_display7seg_morse(ev.payload["blink_morse"])
-                        else:
-                            panel.set_display7seg_morse(ev.payload.get("morse", ""))
-
-                    elif ev.type == "morse_play":
-                        # Přehrání Morse slova na LED + bzučáku.
-                        print(f"MORSE PLAY: {ev.payload['word']}  [{ev.payload['morse']}]")
-                        play_morse(panel, ev.payload["morse"])
+                        # 7-segmentovka zobrazuje výhradně morse (tečky/čárky),
+                        # žádný dekódovaný znak/slovo jako náhled.
+                        panel.set_display7seg_morse(ev.payload.get("morse", ""))
 
                     elif ev.type == "message":
                         print(f"ENGINE: {ev.payload['text']}")

@@ -12,7 +12,7 @@ import time
 import threading
 from typing import Dict
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 
 from game_engine import GameEngine
 from city_panel import CityPanel
@@ -27,17 +27,8 @@ def create_app(panel: "CityPanel", engine: "GameEngine", engine_lock: threading.
     @app.get("/api/status")
     def get_status():
         with engine_lock:
-            data = {
-                "systems": dict(engine.systems),
-                "power": {
-                    "current": engine._current_power(),
-                    "required": engine.power_required,
-                    "sources": dict(engine.power_sources),
-                },
-                "fragments": list(engine.fragments_found),
-                "encoders": dict(engine.encoder_positions),
-                "timestamp": time.time(),
-            }
+            data = engine.status()
+            data["timestamp"] = time.time()
         return jsonify(data)
 
     @app.get("/api/inputs")
@@ -52,62 +43,35 @@ def create_app(panel: "CityPanel", engine: "GameEngine", engine_lock: threading.
                 encoders = {}
         return jsonify(buttons=buttons, encoders=encoders)
 
-    @app.get("/api/leds")
-    def get_leds():
-        # The logical LED state mirrors the engine: each system maps to a
-        # coloured segment, plus the power bar and fragment indicators.
+    @app.get("/api/areas")
+    def get_areas():
         with engine_lock:
-            data = {
-                "systems": dict(engine.systems),
-                "power_level": engine._current_power(),
-                "fragment_count": len(engine.fragments_found),
-            }
-        return jsonify(data)
+            status = engine.status()
+        return jsonify(
+            active_area=status["active_area"],
+            unlocked_areas=status["unlocked_areas"],
+            areas=status["areas"],
+            countdown=status["countdown"],
+        )
 
     # ------------------------------------------------------------------
     # WRITE ENDPOINTS
     # ------------------------------------------------------------------
-    @app.post("/api/system/status")
-    def set_system_status():
-        body = request.get_json(silent=True) or {}
-        system = body.get("system")
-        status = body.get("status")
-        if not system or not status:
-            return jsonify(ok=False, error="'system' and 'status' are required"), 400
-        if system not in engine.systems:
-            return jsonify(ok=False, error=f"unknown system '{system}'"), 404
-
-        try:
-            with engine_lock:
-                engine.systems[system] = status
-                panel.set_system_status(system, status)
-        except Exception as exc:  # invalid status string, etc.
-            return jsonify(ok=False, error=str(exc)), 400
-        return jsonify(ok=True, system=system, status=status)
-
-    @app.post("/api/fragment/unlock")
-    def unlock_fragment():
-        body = request.get_json(silent=True) or {}
-        fragment = body.get("fragment")
-        if not fragment:
-            return jsonify(ok=False, error="'fragment' is required"), 400
-
+    @app.post("/api/unlock")
+    def try_unlock():
+        # Vyhodnotí aktuální nastavení panelu proti dennímu kódu (stejně jako
+        # stisk fyzického unlock_button). Vrací nový stav oblastí.
         with engine_lock:
-            already = fragment in engine.fragments_found
-            # Enqueues fragment_unlocked / fragment_count events that the main
-            # loop drains and reflects on the LEDs.
-            engine._unlock_fragment(fragment)
-            fragments = list(engine.fragments_found)
-        return jsonify(ok=True, fragment=fragment, already_unlocked=already, fragments=fragments)
-
-    @app.post("/api/mission/start")
-    def start_mission():
-        body = request.get_json(silent=True) or {}
-        mission = body.get("mission")
-        if not mission:
-            return jsonify(ok=False, error="'mission' is required"), 400
-        # Mission plugin system is not implemented yet in the engine.
-        return jsonify(ok=False, error="missions not implemented"), 501
+            before = list(engine.unlocked_areas)
+            engine._try_unlock()
+            status = engine.status()
+        unlocked_now = [a for a in status["unlocked_areas"] if a not in before]
+        return jsonify(
+            ok=True,
+            unlocked=unlocked_now,
+            active_area=status["active_area"],
+            unlocked_areas=status["unlocked_areas"],
+        )
 
     return app
 

@@ -9,73 +9,76 @@ class EngineEvent:
     type: str
     payload: dict = field(default_factory=dict)
 
-
-# ----------------------------------------------------------------------
-# Finální hra dne — získání fragmentu Kódu města
-# ----------------------------------------------------------------------
-# Každý systém má svůj fragment, den v týdnu, místo na mapě a hlášení.
-#
-# POZOR: heslo (LOCKED["word"]) NESMÍ obsahovat písmeno "M" — 7-segmentový
-# displej ho neumí zobrazit, takže by ho hráč na panelu nepřečetl.
-LOCKED = {
-    "ledMessage": "LOCKED",
-    "word": ["heart", "1", "A"],
-}
-MISSIONS = {
-    "power": {
-        "day": "wednesday",
-        "map": "ELEKTRÁRNA",
-        "fragment": "POWER-1",
-        "success": "Přístup ověřen. Fragment energetického systému uložen. "
-                   "Dodávka energie byla obnovena.",
-    },
-    "comms": {
-        "day": "monday",
-        "ledMessage": "POSTA OK",
-        "map": "POŠTA",
-        "fragment": "COMMS-1",
-        "word": "LANO",
-        "success": "Přístup ověřen. Komunikační síť je opět online. Fragment kódu uložen.",
-    },
-    "transport": {
-        "day": "thursday",
-        "map": "DOPRAVNÍ CENTRUM A CESTY",
-        "fragment": "TRANSPORT-1",
-        "success": "Přístup ověřen. Dopravní systém synchronizován. Fragment kódu získán.",
-    },
-    "rescue": {
-        "day": "tuesday",
-        "map": "ZÁCHRANNÉ CENTRUM",
-        "fragment": "RESCUE-1",
-        "success": "Přístup ověřen. Nouzové komunikační kanály byly obnoveny. "
-                   "Fragment kódu uložen.",
-    },
-    "core": {
-        "day": "friday",
-        "map": "RADNICE A ZBYTEK MĚSTA",
-        "fragment": "CORE-1",
-        "success": "Přístup ověřen. Poslední fragment přijat. "
-                   "Centrální systém je připraven k aktivaci.",
-    },
-}
-
-# Pořadí dnů v týdnu (pro plánování / přehled).
-DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"]
-
-ERROR_MESSAGES = {
-    "denied": "Ověření selhalo. Přístup zamítnut.",
-    "invalid_code": "Neplatný řídící kód. Zkontrolujte nastavení panelu.",
-    "sync": "Synchronizace systému nebyla dokončena.",
-    "protocol": "Bezpečnostní protokol je stále aktivní. Opakujte postup.",
-}
-
-FINALE_MESSAGES = [
-    "Bylo nalezeno všech pět fragmentů Kódu města.",
-    "Probíhá rekonstrukce hlavního řídícího klíče.",
-    "Rekonstrukce dokončena.",
-    "Centrální řídící systém obnoven.",
-    "Vítejte, agenti. Tajemné město je opět v bezpečí.",
+# Názvy symbolů v pořadí SYMBOLS z max7219_display.py (index = pozice enkodéru).
+SYMBOL_NAMES = [
+    "heart", "smiley", "star", "lightning",
+    "arrow_up","arrow_down", "key", "eye", "hourglass", "music",
 ]
+
+UNITS = {
+    "posta": {
+        "locked": True,
+        "unlockable": True,
+        "day": 0,
+        "code": {
+            "morse": "M",
+            "color": "red",
+            "number": 1,
+            "letter": "A",
+            "glyph": SYMBOL_NAMES[0]
+        }
+    },
+    "izs": {
+        "locked": True,
+        "unlockable": False,
+        "day": 1,
+        "code": {
+            "morse": "F",
+            "color": "green",
+            "number": 9,
+            "letter": "F",
+            "glyph": SYMBOL_NAMES[2]
+        }
+    },
+    "elektrarna": {
+        "locked": True,
+        "unlockable": False,
+        "day": 2,
+        "code": {
+            "morse": "F",
+            "color": "yellow",
+            "number": 9,
+            "letter": "F",
+            "glyph": SYMBOL_NAMES[4]
+        }
+    },
+    "doprava": {
+        "locked": True,
+        "unlockable": False,
+        "day": 3,
+        "code": {
+            "morse": "F",
+            "color": "yellow",
+            "number": 9,
+            "letter": "F",
+            "glyph": SYMBOL_NAMES[6]
+        }
+    },
+    "radnice": {
+        "locked": True,
+        "unlockable": False,
+        "day": 4,
+        "code": {
+            "morse": "F",
+            "color": "yellow",
+            "number": 9,
+            "letter": "F",
+            "glyph": SYMBOL_NAMES[8]
+        }
+    },
+}
+
+
 
 # Mezinárodní Morseova abeceda pro modul KOMUNIKACE (mimo rozsah dekodéru A–J).
 MORSE_ALPHABET = {
@@ -93,193 +96,172 @@ MORSE_TO_LETTER = {code: ch for ch, code in MORSE_ALPHABET.items()}
 # Písmena kombinačních enkodérů (index 0-9 → A-J).
 ENCODER_LETTERS = "ABCDEFGHIJ"
 
-# Názvy symbolů v pořadí SYMBOLS z max7219_display.py (index = pozice enkodéru).
-SYMBOL_NAMES = [
-    "heart", "smiley", "star", "skull", "lightning",
-    "arrow_up", "key", "eye", "hourglass", "music",
+# Pořadí odemykání oblastí — jeden pracovní den = jedna oblast.
+# Pondělí→pošta, úterý→IZS, středa→elektrárna, čtvrtek→doprava, pátek→radnice.
+DAY_ORDER = ["posta", "izs", "elektrarna", "doprava", "radnice"]
+
+# Mapování oblasti na LED segment města (rozsvítí se po odemčení).
+AREA_SEGMENT = {
+    "posta": "comms",
+    "izs": "rescue",
+    "elektrarna": "power",
+    "doprava": "transport",
+    "radnice": "core",
+}
+
+# Název místa na mapě pro hlášení.
+AREA_MAP_NAME = {
+    "posta": "POŠTA",
+    "izs": "ZÁCHRANNÉ CENTRUM",
+    "elektrarna": "ELEKTRÁRNA",
+    "doprava": "DOPRAVNÍ CENTRUM A CESTY",
+    "radnice": "RADNICE A ZBYTEK MĚSTA",
+}
+
+# Barvy volené tlačítkem button_color (index 0-9 → A-J dle městského dekodéru).
+COLORS_EN = ["red", "blue", "green", "yellow", "orange",
+             "purple", "white", "black", "brown", "gray"]
+COLOR_RGB = {
+    "red": (255, 0, 0),
+    "blue": (0, 0, 255),
+    "green": (0, 255, 0),
+    "yellow": (255, 180, 0),
+    "orange": (255, 80, 0),
+    "purple": (160, 0, 255),
+    "white": (255, 255, 255),
+    "black": (10, 10, 10),
+    "brown": (120, 60, 0),
+    "gray": (80, 80, 80),
+}
+
+# Globální odpočet po startu systému. Po jeho vypršení panel přestane reagovat.
+COUNTDOWN_DURATION = 30 * 60.0     # 30 minut (s)
+COUNTDOWN_BAR_EMIT_INTERVAL = 0.5  # jak často se posílá stav pruhu (s)
+
+# Chybové hlášení při neplatném řídicím kódu.
+ERROR_INVALID_CODE = "Neplatný řídicí kód. Zkontrolujte nastavení panelu."
+
+# Hlášení finále (po odemčení všech pěti oblastí).
+FINALE_MESSAGES = [
+    "Bylo nalezeno všech pět fragmentů Kódu města.",
+    "Probíhá rekonstrukce hlavního řídicího klíče.",
+    "Rekonstrukce dokončena.",
+    "Centrální řídicí systém obnoven.",
+    "Vítejte, agenti. Tajemné město je opět v bezpečí.",
 ]
 
 
-def _lock_targets_from_word(word):
-    """Z hesla LOCKED['word'] odvodí cílové pozice (index 0-9) enkodérů
-    podle typu tokenu: číslice→lock_encoder_2, písmeno→lock_encoder_1,
-    název symbolu→lock_encoder_3."""
-    targets = {}
-    for token in word:
-        t = str(token)
-        if t.isdigit():
-            targets["lock_encoder_2"] = int(t) % 10
-        elif len(t) == 1 and t.upper() in ENCODER_LETTERS:
-            targets["lock_encoder_1"] = ENCODER_LETTERS.index(t.upper())
-        elif t.lower() in SYMBOL_NAMES:
-            targets["lock_encoder_3"] = SYMBOL_NAMES.index(t.lower())
-    return targets
-
-
-# Výchozí heslo zámku odvozené ze struktury LOCKED — hráč musí nastavit
-# tři enkodéry (písmeno / číslice / symbol) a potvrdit tlačítkem core_activate.
-LOCK_TARGETS = _lock_targets_from_word(LOCKED["word"])
-
-# Odpočet stability jádra po odemčení panelu.
-COUNTDOWN_DURATION = 60.0            # délka odpočtu (s)
-UNLOCK_SCAN_TIME = 2.0              # délka zeleného Knight Rider intra (s)
-COUNTDOWN_BAR_EMIT_INTERVAL = 0.2  # jak často se posílá stav pruhu (s)
-
-
 class GameEngine:
+    """Herní logika 'Tajemného města'.
+
+    Model: každý pracovní den lze odemknout jednu městskou oblast (začíná se
+    poštou). Hráč nastaví na panelu denní kód — tři enkodéry (písmeno / číslice
+    / symbol), barvu (tlačítko) a Morse (5 přepínačů) — a potvrdí tlačítkem
+    unlock_button. Po startu systému běží globální 30minutový odpočet; po jeho
+    vypršení panel přestane reagovat (self.dead) až do restartu.
+    """
+
     def __init__(self):
-        self.systems = {
-            "power": "failure",
-            "transport": "offline",
-            "comms": "offline",
-            "rescue": "warning",
-            "core": "locked",
-        }
-
-        self.power_required = 50
-        self.power_sources = {
-            "hydro": False,
-            "solar": False,
-            "diesel": False,
-            "grid": False,
-        }
-
-        self.power_values = {
-            "hydro": 30,
-            "solar": 20,
-            "diesel": 40,
-            "grid": 10,
-        }
-
-        self.fragments_found: List[str] = []
         self.pending_events: List[EngineEvent] = []
         self._finale_done = False
 
-        # Modul KOMUNIKACE — Morse vysílač
-        # 4 přepínače prvků (False=tečka, True=čárka) + 4 přepínače masky
-        # (které pozice se při stisku Přidat použijí).
-        self.morse_element = [False, False, False, False]
-        self.morse_active = [False, False, False, False]
-        self.morse_word = ""
+        # Odemčené oblasti města (v pořadí DAY_ORDER).
+        self.unlocked_areas: List[str] = []
 
+        # Modul KOMUNIKACE — Morse: 5 přepínačů (True = ON = tečka '.',
+        # False = OFF = čárka '-'). Morse číslice mají 5 znaků → 5 přepínačů.
+        # Tlačítko morse_cycle volí, kolik přepínačů (1..5) tvoří kód;
+        # zbylé se ignorují. Kód se zobrazuje na 7-segmentovém panelu a je
+        # součástí denního odemykacího kódu.
+        self.morse_symbols = [False, False, False, False, False]
+        self.morse_length = 5
+
+        # Tři kombinační enkodéry (index 0-9).
         self.encoder_letters = list("ABCDEFGHIJ")
         self.encoder_positions = {
-            "lock_encoder_1": 0,
-            "lock_encoder_2": 0,
-            "lock_encoder_3": 0,
+            "encoder_number": 0,   # písmeno A-J
+            "encoder_glyph": 0,    # číslice 0-9
+            "encoder_letter": 0,   # symbol
         }
 
-        # Panel startuje v zamčeném stavu — dokud se nezadá správná kombinace
-        # a nepotvrdí tlačítkem core_activate, systém nereaguje na ostatní vstupy.
-        self.locked = True
+        # Barva volená tlačítkem button_color (index do COLORS_EN).
+        self.color_index = 0
 
-        # Odpočet stability jádra (spustí se po odemčení panelu).
+        # Globální 30minutový odpočet — startuje se startem systému.
+        # Po vypršení self.dead = True a panel přestane reagovat.
+        self.dead = False
         self.countdown_active = False
         self.countdown_duration = COUNTDOWN_DURATION
-        self.countdown_start = 0.0
         self.countdown_deadline = 0.0
-        self._countdown_bar_started = False
         self._countdown_last_emit = 0.0
 
-        self.pending_events.append(EngineEvent(
-            "encoder_letter",
-            {"encoder": "lock_encoder_1", "index": 0}
-        ))
-        self.pending_events.append(EngineEvent(
-            "encoder_letter",
-            {"encoder": "lock_encoder_2", "index": 0}
-        ))
-        self.pending_events.append(EngineEvent(
-            "encoder_letter",
-            {"encoder": "lock_encoder_3", "index": 0}
-        ))
-        # Rozblikej "locked" indikaci na 7-segmentovém panelu.
-        self.pending_events.append(EngineEvent(
-            "locked", {"locked": True, "message": LOCKED["ledMessage"]}
-        ))
-
-    def handle_panel_event(self, name: str, event_type: str, is_active: bool):
-        # V zamčeném stavu systém reaguje jen na kombinační enkodéry a na
-        # potvrzovací tlačítko core_activate. Ostatní vstupy se ignorují.
-        if self.locked:
-            if name.startswith("lock_encoder_") and event_type in ("rotated_cw", "rotated_ccw"):
-                self._rotate_encoder(name, event_type)
-            elif name == "core_activate" and event_type == "pressed":
-                self._try_unlock()
-            return
-
-        power_changed = False
-
-        if name == "power_hydro" and event_type == "changed":
-            self.power_sources["hydro"] = is_active
-            power_changed = True
-
-        elif name == "power_solar" and event_type == "changed":
-            self.power_sources["solar"] = is_active
-            power_changed = True
-
-        elif name == "power_diesel" and event_type == "changed":
-            self.power_sources["diesel"] = is_active
-            power_changed = True
-
-        elif name == "power_grid" and event_type == "changed":
-            self.power_sources["grid"] = is_active
-            power_changed = True
-
-        elif name == "power_stabilize" and event_type == "pressed":
-            self._stabilize_power()
-
-        elif name == "lock_encoder_1" and event_type in ("rotated_cw", "rotated_ccw"):
-            self._rotate_encoder("lock_encoder_1", event_type)
-
-        elif name == "lock_encoder_2" and event_type in ("rotated_cw", "rotated_ccw"):
-            self._rotate_encoder("lock_encoder_2", event_type)
-
-        elif name == "lock_encoder_3" and event_type in ("rotated_cw", "rotated_ccw"):
-            self._rotate_encoder("lock_encoder_3", event_type)
-
-        elif name in ("fire", "medical", "police") and event_type == "pressed":
-            self._handle_rescue_button(name)
-
-        elif name.startswith("morse_el_") and event_type == "changed":
-            self.morse_element[int(name[-1]) - 1] = is_active
-            self._emit_morse_preview()
-
-        elif name.startswith("morse_act_") and event_type == "changed":
-            self.morse_active[int(name[-1]) - 1] = is_active
-            self._emit_morse_preview()
-
-        elif name == "morse_add" and event_type == "pressed":
-            self._morse_add_letter()
-
-        elif name == "morse_del" and event_type == "pressed":
-            self._morse_delete()
-
-        elif name == "morse_send" and event_type == "pressed":
-            self._morse_send()
-
-        elif name == "core_activate" and event_type == "pressed":
-            self._activate_core()
-
-        if power_changed:
+        # Počáteční zobrazení enkodérů na jejich maticích.
+        for name in ("encoder_number", "encoder_glyph", "encoder_letter"):
             self.pending_events.append(EngineEvent(
-                "power_level",
-                {"percent": self._current_power()}
+                "encoder_letter", {"encoder": name, "index": 0}
             ))
 
+        # Spusť globální odpočet hned při vytvoření enginu (start systému).
+        self.start_countdown()
+
+    # ------------------------------------------------------------------
+    # Odpočet
+    # ------------------------------------------------------------------
+    def start_countdown(self):
+        """Spustí globální 30minutový odpočet po startu systému."""
+        now = time.monotonic()
+        self.dead = False
+        self.countdown_active = True
+        self.countdown_deadline = now + self.countdown_duration
+        self._countdown_last_emit = 0.0
+        self.pending_events.append(EngineEvent("central_bar", {"fraction": 1.0}))
+        self.pending_events.append(EngineEvent(
+            "message", {"text": "Systém spuštěn. Zbývá 30 minut."}
+        ))
+
+    def sync_initial_state(self, switch_states=None):
+        """Načte počáteční stav 5 morse přepínačů do vnitřního stavu enginu.
+
+        Volá se jednou při startu (po inicializaci panelu). Zobrazení do panelů
+        obstará CityPanel.show_initial_state(); zde jen srovnáme vnitřní stav
+        morse s fyzickými přepínači.
+        """
+        if switch_states:
+            for i in range(len(self.morse_symbols)):
+                self.morse_symbols[i] = bool(
+                    switch_states.get(f"morse_pos_{i + 1}", False)
+                )
+
+    # ------------------------------------------------------------------
+    # Zpracování vstupů
+    # ------------------------------------------------------------------
+    def handle_panel_event(self, name: str, event_type: str, is_active: bool):
+        # Po vypršení odpočtu systém přestane reagovat na jakýkoli vstup.
+        if self.dead:
+            return
+
+        if name in self.encoder_positions and event_type in ("rotated_cw", "rotated_ccw"):
+            self._rotate_encoder(name, event_type)
+
+        elif name == "button_color" and event_type == "pressed":
+            self._cycle_color()
+
+        elif name == "morse_cycle" and event_type == "pressed":
+            self._cycle_morse_length()
+
+        elif name.startswith("morse_pos_") and event_type == "changed":
+            idx = int(name.rsplit("_", 1)[1]) - 1
+            if 0 <= idx < len(self.morse_symbols):
+                self.morse_symbols[idx] = is_active
+                self._emit_morse_preview()
+
+        elif name == "unlock_button" and event_type == "pressed":
+            self._try_unlock()
+
     def tick(self):
-        if not self.countdown_active:
+        if not self.countdown_active or self.dead:
             return
         now = time.monotonic()
-        # Během zeleného Knight Rider intra se pruh ještě nekreslí.
-        if now < self.countdown_start:
-            return
-        if not self._countdown_bar_started:
-            self._countdown_bar_started = True
-            # Konec zeleného skeneru — začíná ubývající pruh, od teď běží 60 s.
-            self.countdown_deadline = now + self.countdown_duration
-            self._countdown_last_emit = 0.0
-            self.pending_events.append(EngineEvent("central_scan", {"active": False}))
         remaining = self.countdown_deadline - now
         if remaining <= 0:
             self._on_countdown_expire()
@@ -287,347 +269,200 @@ class GameEngine:
         if now - self._countdown_last_emit >= COUNTDOWN_BAR_EMIT_INTERVAL:
             self._countdown_last_emit = now
             self.pending_events.append(EngineEvent(
-                "central_bar", {"fraction": remaining / self.countdown_duration}
+                "central_bar",
+                {"fraction": remaining / self.countdown_duration}
             ))
 
-    def _start_countdown(self):
-        """Spustí minutový odpočet po zeleném Knight Rider intru."""
-        now = time.monotonic()
-        self.countdown_active = True
-        self.countdown_duration = COUNTDOWN_DURATION
-        self.countdown_start = now + UNLOCK_SCAN_TIME
-        self.countdown_deadline = self.countdown_start + self.countdown_duration
-        self._countdown_bar_started = False
-        self._countdown_last_emit = 0.0
-
-    def _reset_countdown(self):
-        """Odeslání morse kódu vynuluje odpočet na další minutu."""
-        if not self.countdown_active:
-            return
-        now = time.monotonic()
-        self.countdown_start = now
-        self.countdown_deadline = now + self.countdown_duration
-        self._countdown_bar_started = True
-        self._countdown_last_emit = now
-        self.pending_events.append(EngineEvent("central_scan", {"active": False}))
-        self.pending_events.append(EngineEvent("central_bar", {"fraction": 1.0}))
-        self.pending_events.append(EngineEvent(
-            "message", {"text": "Morse odeslán — odpočet resetován na 60 s."}
-        ))
-
     def _on_countdown_expire(self):
-        """Vypršení odpočtu — jádro se znovu zamyká."""
+        """Vypršení odpočtu — systém přestane reagovat (do restartu)."""
         self.countdown_active = False
-        self._countdown_bar_started = False
-        self.locked = True
+        self.dead = True
         self.pending_events.append(EngineEvent("central_bar", {"fraction": None}))
+        self.pending_events.append(EngineEvent("central_scan", {"active": False}))
         self.pending_events.append(EngineEvent(
-            "message", {"text": "Čas vypršel! Jádro se znovu zamyká."}
+            "message", {"text": "Čas vypršel! Systém přestal reagovat."}
         ))
         self.pending_events.append(EngineEvent("sound", {"clip": "error"}))
         self.pending_events.append(EngineEvent("animation", {"kind": "error"}))
-        self.pending_events.append(EngineEvent(
-            "locked", {"locked": True, "message": LOCKED["ledMessage"]}
-        ))
+        self.pending_events.append(EngineEvent("dead", {"message": "DEAD"}))
 
     def pop_events(self):
         events = self.pending_events[:]
         self.pending_events.clear()
         return events
 
-    def _stabilize_power(self):
-        total = self._current_power()
-
-        # update visible bar always
-        self.pending_events.append(EngineEvent(
-            "power_level",
-            {"percent": total}
-        ))
-
-        if total >= self.power_required:
-            self._complete_mission("power")
-        else:
-            self.systems["power"] = "failure"
-            self.pending_events.append(EngineEvent(
-                "system_status",
-                {"system": "power", "status": "failure"}
-            ))
-            self._fail_mission(
-                "sync",
-                detail=f"Insufficient power: {total}% / need {self.power_required}%",
-            )
-
-    def _current_power(self) -> int:
-        total = 0
-        for source, enabled in self.power_sources.items():
-            if enabled:
-                total += self.power_values[source]
-        return total
-
-    def _handle_rescue_button(self, name: str):
-        if name == "fire":
-            self._complete_mission("rescue")
-        elif name == "medical":
-            self._handle_medical_call()
-        else:
-            self.pending_events.append(EngineEvent(
-                "message",
-                {"text": f"{name} button pressed"}
-            ))
-
+    # ------------------------------------------------------------------
+    # Enkodéry + barva
+    # ------------------------------------------------------------------
     def _encoder_letter(self, encoder_name: str) -> str:
         idx = self.encoder_positions[encoder_name]
         return self.encoder_letters[idx]
 
     def _rotate_encoder(self, encoder_name: str, event_type: str):
         step = 1 if event_type == "rotated_cw" else -1
-        letter_count = len(self.encoder_letters)
+        count = len(self.encoder_letters)
         self.encoder_positions[encoder_name] = (
             self.encoder_positions[encoder_name] + step
-        ) % letter_count
-
+        ) % count
         self.pending_events.append(EngineEvent(
             "encoder_letter",
             {"encoder": encoder_name, "index": self.encoder_positions[encoder_name]}
         ))
 
-        l1 = self._encoder_letter("lock_encoder_1")
-        d2 = self.encoder_positions["lock_encoder_2"] % 10
-        l3 = self._encoder_letter("lock_encoder_3")
+    def _cycle_color(self):
+        self.color_index = (self.color_index + 1) % len(COLORS_EN)
+        color = self.current_color()
         self.pending_events.append(EngineEvent(
-            "message",
-            {"text": f"Lock code: [{l1}] [{d2}] [{l3}]"}
+            "color_select", {"color": color, "rgb": COLOR_RGB[color]}
+        ))
+        self.pending_events.append(EngineEvent(
+            "message", {"text": f"Barva: {color}"}
         ))
 
-    def _handle_medical_call(self):
-        l1 = self._encoder_letter("lock_encoder_1")
-        l2 = self._encoder_letter("lock_encoder_2")
+    def current_color(self) -> str:
+        return COLORS_EN[self.color_index]
 
-        if l1 == l2:
-            self._complete_mission("rescue")
-        else:
-            self.pending_events.append(EngineEvent(
-                "message",
-                {"text": f"Medic call blocked. Set both encoders to same letter (A-J). Current: {l1}/{l2}"}
-            ))
+    # ------------------------------------------------------------------
+    # Denní odemykání oblastí
+    # ------------------------------------------------------------------
+    def _current_target(self):
+        """Vrátí klíč oblasti, která je právě na řadě (první neodemčená
+        v pořadí DAY_ORDER), nebo None když jsou všechny odemčené."""
+        for key in DAY_ORDER:
+            if key not in self.unlocked_areas:
+                return key
+        return None
 
-    def _activate_core(self):
-        required = {"POWER-1", "COMMS-1", "TRANSPORT-1", "RESCUE-1"}
-        if required.issubset(set(self.fragments_found)):
-            self._complete_mission("core")
-        else:
-            self._fail_mission(
-                "protocol",
-                detail="Core locked - missing code fragments",
-            )
+    def _morse_matches(self, letter: str) -> bool:
+        """Porovná zadaný Morse s cílovým písmenem/číslicí.
+
+        Použije se právě tolik přepínačů, kolik je nastaveno tlačítkem
+        morse_cycle (self.morse_length); zbylé přepínače se ignorují. Kód
+        musí přesně odpovídat morse cíle.
+        """
+        target = MORSE_ALPHABET.get(str(letter).upper(), "")
+        if not target:
+            return False
+        return self._current_morse() == target
 
     def _try_unlock(self):
-        """Ověří pozice enkodérů proti heslu LOCKED['word']."""
-        unlocked = all(
-            self.encoder_positions.get(name) == target
-            for name, target in LOCK_TARGETS.items()
-        )
-        password = " ".join(str(t) for t in LOCKED["word"])
-        if unlocked:
-            self.locked = False
+        target = self._current_target()
+        if target is None:
             self.pending_events.append(EngineEvent(
-                "message",
-                {"text": f"Panel odemčen! Heslo: {password}"}
+                "message", {"text": "Všechny oblasti jsou již odemčené."}
             ))
-            self.pending_events.append(EngineEvent("locked", {"locked": False}))
-            # Jednorázová animace odemčení na displejích.
-            self.pending_events.append(EngineEvent("display_anim", {"kind": "unlock"}))
-            # Zelený Knight Rider na central segmentu, pak minutový odpočet.
-            self.pending_events.append(EngineEvent(
-                "central_scan", {"active": True, "color": "green"}
-            ))
-            self._start_countdown()
-            self.pending_events.append(EngineEvent("sound", {"clip": "success"}))
-            self.pending_events.append(EngineEvent(
-                "animation", {"kind": "success", "system": "core"}
-            ))
+            return
+
+        code = UNITS[target]["code"]
+        checks = {
+            "letter": self.encoder_positions["encoder_number"]
+                      == ENCODER_LETTERS.index(str(code["letter"]).upper()),
+            "number": self.encoder_positions["encoder_glyph"]
+                      == int(code["number"]) % 10,
+            "glyph": self.encoder_positions["encoder_letter"]
+                     == SYMBOL_NAMES.index(str(code["glyph"]).lower()),
+            "color": self.current_color() == str(code["color"]).lower(),
+            "morse": self._morse_matches(code["morse"]),
+        }
+
+        if all(checks.values()):
+            self._unlock_area(target)
         else:
+            wrong = [k for k, ok in checks.items() if not ok]
             self.pending_events.append(EngineEvent(
-                "message",
-                {"text": "Špatné heslo — panel zůstává zamčen."}
+                "message", {"text": ERROR_INVALID_CODE}
+            ))
+            self.pending_events.append(EngineEvent(
+                "message", {"text": f"Nesouhlasí: {', '.join(wrong)}"}
             ))
             self.pending_events.append(EngineEvent("sound", {"clip": "error"}))
             self.pending_events.append(EngineEvent("animation", {"kind": "error"}))
 
-    # ------------------------------------------------------------------
-    # Finální mise / fragmenty / efekty
-    # ------------------------------------------------------------------
-    def _complete_mission(self, system: str):
-        """Úspěšné dokončení závěrečné mise dne pro daný systém."""
-        mission = MISSIONS[system]
-        self.systems[system] = "ok"
-        self.pending_events.append(EngineEvent(
-            "system_status",
-            {"system": system, "status": "ok"}
-        ))
+    def _unlock_area(self, key: str):
+        self.unlocked_areas.append(key)
+        segment = AREA_SEGMENT.get(key)
+        map_name = AREA_MAP_NAME.get(key, key)
+
         self.pending_events.append(EngineEvent(
             "message",
-            {"text": mission["success"]}
+            {"text": f"Přístup ověřen. Oblast {map_name} odemčena."}
         ))
+        if segment:
+            self.pending_events.append(EngineEvent(
+                "system_status", {"system": segment, "status": "ok"}
+            ))
+            self.pending_events.append(EngineEvent(
+                "map_reveal",
+                {"system": segment, "location": map_name, "day": UNITS[key]["day"]}
+            ))
         self.pending_events.append(EngineEvent("sound", {"clip": "success"}))
         self.pending_events.append(EngineEvent(
-            "animation",
-            {"kind": "success", "system": system}
+            "animation", {"kind": "success", "system": segment}
         ))
-        # Rozsvícení místa na mapě města pro daný den.
-        self.pending_events.append(EngineEvent(
-            "map_reveal",
-            {"system": system, "location": mission["map"], "day": mission["day"]}
-        ))
-        self._unlock_fragment(mission["fragment"])
+        self.pending_events.append(EngineEvent("display_anim", {"kind": "unlock"}))
         self._check_finale()
 
-    def _fail_mission(self, reason: str = "denied", detail: str = None):
-        """Neúspěšné ověření — chybové hlášení a červené bliknutí."""
-        self.pending_events.append(EngineEvent(
-            "message",
-            {"text": ERROR_MESSAGES.get(reason, ERROR_MESSAGES["denied"])}
-        ))
-        if detail:
-            self.pending_events.append(EngineEvent("message", {"text": detail}))
-        self.pending_events.append(EngineEvent("sound", {"clip": "error"}))
-        self.pending_events.append(EngineEvent("animation", {"kind": "error"}))
-
     def _check_finale(self):
-        """Páteční finále — spustí se po získání všech pěti fragmentů."""
+        """Finále — spustí se po odemčení všech pěti oblastí."""
         if self._finale_done:
             return
-        required = {m["fragment"] for m in MISSIONS.values()}
-        if not required.issubset(set(self.fragments_found)):
+        if not all(k in self.unlocked_areas for k in DAY_ORDER):
             return
-
         self._finale_done = True
-        self.systems["core"] = "ok"
-        self.pending_events.append(EngineEvent(
-            "system_status",
-            {"system": "core", "status": "ok"}
-        ))
         for text in FINALE_MESSAGES:
             self.pending_events.append(EngineEvent("message", {"text": text}))
         self.pending_events.append(EngineEvent("sound", {"clip": "finale"}))
         self.pending_events.append(EngineEvent("animation", {"kind": "finale"}))
 
     # ------------------------------------------------------------------
-    # Modul KOMUNIKACE — Morse vysílač
+    # Morse náhled
     # ------------------------------------------------------------------
     def _current_morse(self) -> str:
-        """Sestaví Morse aktuálního písmene z aktivních pozic přepínačů.
-
-        morse_element[i] = maska (zapnuto → pozice se počítá),
-        morse_active[i]  = symbol (zapnuto → tečka '.', vypnuto → čárka '-').
-        """
-        parts = []
-        for i in range(4):
-            if self.morse_element[i]:
-                parts.append("." if self.morse_active[i] else "-")
-        return "".join(parts)
+        """Sestaví Morse kód z prvních morse_length přepínačů
+        (True → '.', False → '-'); zbylé přepínače se ignorují."""
+        n = max(1, min(len(self.morse_symbols), self.morse_length))
+        return "".join("." if self.morse_symbols[i] else "-" for i in range(n))
 
     def _emit_morse_preview(self):
-        """Zobrazí na COMMS 7-segmentovce živý Morse podle přepínačů a na
-        maticovém displeji 2 náhled dekódovaného znaku (na 2 s)."""
-        code = self._current_morse()
-        self.pending_events.append(
-            EngineEvent("display7seg", {"morse": code})
-        )
-        # Náhled dekódovaného písmene na display2 (None = neplatný/prázdný kód).
-        self.pending_events.append(
-            EngineEvent("display2_preview", {"char": MORSE_TO_LETTER.get(code)})
-        )
-
-    def _morse_add_letter(self):
-        code = self._current_morse()
-        if not code:
-            self.pending_events.append(EngineEvent(
-                "message",
-                {"text": "Morse: nastav aspoň jeden aktivní prvek přepínačem masky."}
-            ))
-            return
-
-        letter = MORSE_TO_LETTER.get(code)
-        if letter is None or not letter.isalpha():
-            self.pending_events.append(EngineEvent(
-                "message",
-                {"text": f"Morse: neznámý znak '{code}' — nepřidáno."}
-            ))
-            # Blikni špatným kódem na displeji a písmeno neukládej.
-            self.pending_events.append(EngineEvent("display7seg", {"blink_morse": code}))
-            self.pending_events.append(EngineEvent("sound", {"clip": "error"}))
-            return
-
-        self.morse_word += letter
+        """Zobrazí na 7-segmentovém panelu živý Morse podle přepínačů."""
         self.pending_events.append(EngineEvent(
-            "message",
-            {"text": f"Morse: přidáno {letter} ({code}) → {self.morse_word}"}
-        ))
-        # Zobraz dosavadní slovo z paměti na 2 s, pak zpět na živý Morse náhled.
-        self.pending_events.append(EngineEvent(
-            "display7seg", {"word": self.morse_word, "hold": 2.0}
+            "display7seg", {"morse": self._current_morse()}
         ))
 
-    def _morse_delete(self):
-        if self.morse_word:
-            removed = self.morse_word[-1]
-            self.morse_word = self.morse_word[:-1]
-            self.pending_events.append(EngineEvent(
-                "message",
-                {"text": f"Morse: smazáno {removed} → {self.morse_word or '(prázdné)'}"}
-            ))
-        # Zobraz dosavadní slovo z paměti na 2 s, pak zpět na živý Morse náhled.
-        # Po smazání posledního znaku (slovo prázdné) přehraj jednorázovou
-        # animaci místo prázdné obrazovky.
-        if self.morse_word:
-            self.pending_events.append(EngineEvent(
-                "display7seg", {"word": self.morse_word, "hold": 2.0}
-            ))
-        else:
-            self.pending_events.append(EngineEvent(
-                "display7seg", {"anim": "clear"}
-            ))
-
-    def _morse_send(self):
-        word = self.morse_word
-        if not word:
-            self._fail_mission("invalid_code", detail="Morse: nezadáno žádné slovo.")
-            return
-
-        # Odeslání kódu vynuluje odpočet stability jádra na další minutu.
-        self._reset_countdown()
-
-        morse = " ".join(MORSE_ALPHABET.get(ch, "") for ch in word)
+    def _cycle_morse_length(self):
+        """Tlačítko morse_cycle: cyklicky mění počet použitých přepínačů 1..5."""
+        self.morse_length = self.morse_length % len(self.morse_symbols) + 1
         self.pending_events.append(EngineEvent(
-            "message",
-            {"text": f"Morse: vysílám '{word}'  [{morse}]"}
+            "message", {"text": f"Morse délka: {self.morse_length}"}
         ))
-        # Zobraz zadané slovo na 2 s, pak se displej vrátí k živému náhledu.
-        self.pending_events.append(EngineEvent(
-            "display7seg", {"word": word, "hold": 2.0}
-        ))
-        # Přehrání celého slova na LED + bzučáku.
-        self.pending_events.append(EngineEvent(
-            "morse_play",
-            {"word": word, "morse": morse}
-        ))
+        self._emit_morse_preview()
 
-        target = MISSIONS["comms"].get("word", "").upper()
-        if word.upper() == target:
-            self._complete_mission("comms")
-            self.morse_word = ""
-        else:
-            self._fail_mission("invalid_code", detail=f"Morse: zadáno '{word}'. Zkontroluj kód.")
+    # ------------------------------------------------------------------
+    # Stav pro REST API
+    # ------------------------------------------------------------------
+    def countdown_remaining(self) -> float:
+        if not self.countdown_active:
+            return 0.0
+        return max(0.0, self.countdown_deadline - time.monotonic())
 
-    def _unlock_fragment(self, fragment: str):
-        if fragment not in self.fragments_found:
-            self.fragments_found.append(fragment)
-            self.pending_events.append(EngineEvent(
-                "fragment_unlocked",
-                {"fragment": fragment}
-            ))
-            self.pending_events.append(EngineEvent(
-                "fragment_count",
-                {"count": len(self.fragments_found)}
-            ))
+    def status(self) -> dict:
+        return {
+            "active_area": self._current_target(),
+            "unlocked_areas": list(self.unlocked_areas),
+            "areas": {
+                key: {
+                    "day": UNITS[key]["day"],
+                    "unlocked": key in self.unlocked_areas,
+                }
+                for key in DAY_ORDER
+            },
+            "encoders": dict(self.encoder_positions),
+            "color": self.current_color(),
+            "morse": self._current_morse(),
+            "morse_length": self.morse_length,
+            "countdown": {
+                "active": self.countdown_active,
+                "remaining": self.countdown_remaining(),
+                "dead": self.dead,
+            },
+        }
