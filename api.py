@@ -12,7 +12,7 @@ import time
 import threading
 from typing import Dict
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 from game_engine import GameEngine
 from city_panel import CityPanel
@@ -26,6 +26,7 @@ def create_app(panel: "CityPanel", engine: "GameEngine", engine_lock: threading.
     # ------------------------------------------------------------------
     @app.get("/api/status")
     def get_status():
+        """Systémy (oblasti), odpočet a délka morseovky."""
         with engine_lock:
             data = engine.status()
             data["timestamp"] = time.time()
@@ -33,6 +34,7 @@ def create_app(panel: "CityPanel", engine: "GameEngine", engine_lock: threading.
 
     @app.get("/api/inputs")
     def get_inputs():
+        """Stav tlačítek/přepínačů + pozice enkodérů."""
         with engine_lock:
             buttons: Dict[str, bool] = {}
             if panel.inputs is not None:
@@ -43,35 +45,75 @@ def create_app(panel: "CityPanel", engine: "GameEngine", engine_lock: threading.
                 encoders = {}
         return jsonify(buttons=buttons, encoders=encoders)
 
-    @app.get("/api/areas")
-    def get_areas():
+    @app.get("/api/leds")
+    def get_leds():
+        """Logický stav LED: oblasti (zamčené/odemčené), odpočet, barva."""
         with engine_lock:
             status = engine.status()
+            leds = getattr(panel, "leds", None)
+            countdown_fraction = getattr(leds, "countdown_fraction", None) if leds else None
+            locked_segments = sorted(leds.locked_segments) if leds else []
         return jsonify(
-            active_area=status["active_area"],
-            unlocked_areas=status["unlocked_areas"],
             areas=status["areas"],
-            countdown=status["countdown"],
+            unlocked_areas=status["unlocked_areas"],
+            locked_segments=locked_segments,
+            countdown_fraction=countdown_fraction,
+            color=status["color"],
         )
 
     # ------------------------------------------------------------------
     # WRITE ENDPOINTS
     # ------------------------------------------------------------------
-    @app.post("/api/unlock")
-    def try_unlock():
-        # Vyhodnotí aktuální nastavení panelu proti dennímu kódu (stejně jako
-        # stisk fyzického unlock_button). Vrací nový stav oblastí.
-        with engine_lock:
-            before = list(engine.unlocked_areas)
-            engine._try_unlock()
-            status = engine.status()
-        unlocked_now = [a for a in status["unlocked_areas"] if a not in before]
+    @app.post("/api/unlock/<int:day>")
+    def unlock_day(day: int):
+        """Odemkne oblast daného dne (1-5) bez ověřování kódu."""
+        try:
+            with engine_lock:
+                key = engine.unlock_day(day)
+                status = engine.status()
+        except ValueError as exc:
+            return jsonify(ok=False, error=str(exc)), 400
         return jsonify(
             ok=True,
-            unlocked=unlocked_now,
-            active_area=status["active_area"],
+            day=day,
+            area=key,
             unlocked_areas=status["unlocked_areas"],
+            active_area=status["active_area"],
         )
+
+    @app.post("/api/lock/<int:day>")
+    def lock_day(day: int):
+        """Zamkne oblast daného dne (1-5) a volitelně nastaví její kód.
+
+        Tělo (volitelné): {"morse","color","number","letter","glyph"}.
+        """
+        body = request.get_json(silent=True) or {}
+        try:
+            with engine_lock:
+                key = engine.lock_day(day, body or None)
+                status = engine.status()
+        except ValueError as exc:
+            return jsonify(ok=False, error=str(exc)), 400
+        return jsonify(
+            ok=True,
+            day=day,
+            area=key,
+            unlocked_areas=status["unlocked_areas"],
+            active_area=status["active_area"],
+        )
+
+    @app.post("/api/restart")
+    def restart():
+        """Restart hry. Tělo (volitelné): {"countdown": int sekund}."""
+        body = request.get_json(silent=True) or {}
+        seconds = body.get("countdown")
+        try:
+            with engine_lock:
+                engine.restart(seconds)
+                status = engine.status()
+        except (ValueError, TypeError) as exc:
+            return jsonify(ok=False, error=str(exc)), 400
+        return jsonify(ok=True, countdown=status["countdown"])
 
     return app
 

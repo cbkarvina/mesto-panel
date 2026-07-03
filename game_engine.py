@@ -269,7 +269,7 @@ class GameEngine:
         ))
         self.pending_events.append(EngineEvent("sound", {"clip": "error"}))
         self.pending_events.append(EngineEvent("animation", {"kind": "error"}))
-        self.pending_events.append(EngineEvent("dead", {"message": "DEAD"}))
+        self.pending_events.append(EngineEvent("dead", {"active": True, "message": "DEAD"}))
 
     def pop_events(self):
         events = self.pending_events[:]
@@ -448,3 +448,87 @@ class GameEngine:
                 "dead": self.dead,
             },
         }
+
+    # ------------------------------------------------------------------
+    # Ovládání přes REST API
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _day_to_key(day: int) -> str:
+        if not isinstance(day, int) or day < 1 or day > len(DAY_ORDER):
+            raise ValueError(f"day musí být 1-{len(DAY_ORDER)}")
+        return DAY_ORDER[day - 1]
+
+    def unlock_day(self, day: int) -> str:
+        """Odemkne oblast podle dne (1-5) bez ověřování kódu. Vrací klíč oblasti."""
+        key = self._day_to_key(day)
+        if key not in self.unlocked_areas:
+            self._unlock_area(key)
+        return key
+
+    def set_area_code(self, key: str, code: dict):
+        """Nastaví denní kód oblasti (morse/color/number/letter/glyph); validuje."""
+        unit_code = UNITS[key]["code"]
+        if code.get("letter") is not None:
+            letter = str(code["letter"]).upper()
+            if letter not in ENCODER_LETTERS:
+                raise ValueError(f"letter musí být A-{ENCODER_LETTERS[-1]}")
+            unit_code["letter"] = letter
+        if code.get("glyph") is not None:
+            glyph = str(code["glyph"]).lower()
+            if glyph not in SYMBOL_NAMES:
+                raise ValueError(f"glyph musí být jeden z {SYMBOL_NAMES}")
+            unit_code["glyph"] = glyph
+        if code.get("color") is not None:
+            color = str(code["color"]).lower()
+            if color not in COLORS_EN:
+                raise ValueError(f"color musí být jeden z {COLORS_EN}")
+            unit_code["color"] = color
+        if code.get("number") is not None:
+            unit_code["number"] = int(code["number"])
+        if code.get("morse") is not None:
+            morse = str(code["morse"]).upper()
+            if morse not in MORSE_ALPHABET:
+                raise ValueError("morse musí být písmeno/číslice z Morse abecedy")
+            unit_code["morse"] = morse
+
+    def lock_day(self, day: int, code: dict = None) -> str:
+        """Zamkne oblast podle dne (1-5) a volitelně nastaví její kód."""
+        key = self._day_to_key(day)
+        if code:
+            self.set_area_code(key, code)
+        if key in self.unlocked_areas:
+            self.unlocked_areas.remove(key)
+        self._finale_done = False
+        UNITS[key]["locked"] = True
+        segment = AREA_SEGMENT.get(key)
+        if segment:
+            self.pending_events.append(EngineEvent(
+                "system_status", {"system": segment, "status": "locked"}
+            ))
+        self.pending_events.append(EngineEvent(
+            "message", {"text": f"Oblast {key} zamčena."}
+        ))
+        return key
+
+    def restart(self, countdown_seconds=None) -> None:
+        """Restart hry: zamkne všechny oblasti a znovu spustí odpočet.
+
+        countdown_seconds: volitelná délka odpočtu v sekundách.
+        """
+        self.unlocked_areas = []
+        self._finale_done = False
+        if countdown_seconds is not None:
+            self.countdown_duration = max(1.0, float(countdown_seconds))
+        for key in DAY_ORDER:
+            UNITS[key]["locked"] = True
+            segment = AREA_SEGMENT.get(key)
+            if segment:
+                self.pending_events.append(EngineEvent(
+                    "system_status", {"system": segment, "status": "locked"}
+                ))
+        # Zruš stav "mrtvo" a vrať 7-segmentovku k živému náhledu.
+        self.pending_events.append(EngineEvent("dead", {"active": False}))
+        self.start_countdown()
+        self.pending_events.append(EngineEvent(
+            "message", {"text": "Systém restartován."}
+        ))

@@ -133,10 +133,13 @@ def main():
                             leds.set_color_leds(tuple(ev.payload["rgb"]))
 
                     elif ev.type == "dead":
-                        # Vypršel odpočet — systém přestal reagovat (blikne DEAD).
-                        panel.set_display7seg_locked(
-                            True, ev.payload.get("message", "DEAD")
-                        )
+                        # Vypršel odpočet → blikne DEAD; restart (active=False) obnoví.
+                        if ev.payload.get("active", True):
+                            panel.set_display7seg_locked(
+                                True, ev.payload.get("message", "DEAD")
+                            )
+                        else:
+                            panel.set_display7seg_locked(False)
                         leds = getattr(panel, "leds", None)
                         if leds is not None:
                             leds.set_central_scan(False)

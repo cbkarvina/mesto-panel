@@ -92,7 +92,7 @@ sudo -E env PATH="$PATH" python3 main.py
 | ------ | ----------------- | ------------------------------------------------------------------------------------------------- |
 | GET    | /api/status       | systémy, countdown, delka morseovky                                                               |
 | GET    | /api/inputs       | stav tlačítek/přepínačů + pozice enkodérů                                                         |
-| GET    | /api/leds         | logický stav LED (systémy, výkon, fragmenty)                                                      |
+| GET    | /api/leds         | logický stav LED (oblasti, zamčené segmenty, odpočet, barva)                                    |
 | POST   | /api/unlock/{day} | 1-5                                                                                               |
 | POST   | /api/lock/{day}   | 1-5, body: { "morse": "M", "color": "red", "number": 1, "letter": "A", "glyph": SYMBOL_NAMES[0] } |
 | POST   | /api/restart      | body: {countdown: int seconds}                                                                    |
@@ -103,7 +103,10 @@ curl -X POST http://<rpi>:5000/api/unlock/1 \
      -H 'Content-Type: application/json'
 curl -X POST http://<rpi>:5000/api/lock/1 \
      -H 'Content-Type: application/json' \
-     -d '{"system":"power","status":"ok"}'
+     -d '{"morse":"M","color":"red","number":1,"letter":"A","glyph":"heart"}'
+curl -X POST http://<rpi>:5000/api/restart \
+     -H 'Content-Type: application/json' \
+     -d '{"countdown":1800}'
 ```
 
 # Systemd (běh na pozadí)
