@@ -139,7 +139,7 @@ class CityPanel:
         # ===== MCP1 =====
         self.inputs.add_encoder("encoder_number", self.mcp1, pin_a=0, pin_b=1)
         self.inputs.add_encoder("encoder_glyph", self.mcp1, pin_a=2, pin_b=3)
-        self.inputs.add_encoder("encoder_letter", self.mcp1, pin_a=4, pin_b=5)
+        self.inputs.add_encoder("encoder_letter", self.mcp1, pin_a=4, pin_b=5, reverse=True)
         self.inputs.add_button("unlock_button", self.mcp1, 6)
         self.inputs.add_button("button_color", self.mcp1, 7)
 
