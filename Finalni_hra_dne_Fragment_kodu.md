@@ -25,63 +25,6 @@ použity k aktivaci Centrálního řídicího centra.
 5.  Při úspěchu se spustí světelná a zvuková sekvence.
 6.  Agenti získají fragment Kódu města.
 
----
-
-# Úspěšné systémové hlášení
-
-## Univerzální
-
-> **„Přístup ověřen. Fragment kódu přijat. Obnova systému zahájena."**
-
----
-
-## Elektrárna
-
-> **„Přístup ověřen. Fragment energetického systému uložen. Dodávka
-> energie byla obnovena."**
-
----
-
-## Komunikace
-
-> **„Přístup ověřen. Komunikační síť je opět online. Fragment kódu
-> uložen."**
-
----
-
-## Doprava
-
-> **„Přístup ověřen. Dopravní systém synchronizován. Fragment kódu
-> získán."**
-
----
-
-## Záchranné složky
-
-> **„Přístup ověřen. Nouzové komunikační kanály byly obnoveny. Fragment
-> kódu uložen."**
-
----
-
-## Řídicí centrum
-
-> **„Přístup ověřen. Poslední fragment přijat. Centrální systém je
-> připraven k aktivaci."**
-
----
-
-# Chybová hlášení
-
-> **„Ověření selhalo. Přístup zamítnut."**
-
-> **„Neplatný řídicí kód. Zkontrolujte nastavení panelu."**
-
-> **„Synchronizace systému nebyla dokončena."**
-
-> **„Bezpečnostní protokol je stále aktivní. Opakujte postup."**
-
----
-
 # Světelné a zvukové efekty
 
 ## Úspěch
@@ -96,24 +39,6 @@ použity k aktivaci Centrálního řídicího centra.
 - Červené bliknutí
 - Krátký varovný tón
 - Zobrazení chybového hlášení
-
----
-
-# Páteční finále
-
-Po vložení všech pěti fragmentů systém oznámí:
-
-> **„Bylo nalezeno všech pět fragmentů Kódu města."**
-
-> **„Probíhá rekonstrukce hlavního řídicího klíče."**
-
-_(3sekundová pauza, světelná animace panelu)_
-
-> **„Rekonstrukce dokončena."**
-
-> **„Centrální řídicí systém obnoven."**
-
-> **„Vítejte, agenti. Tajemné město je opět v bezpečí."**
 
 ---
 

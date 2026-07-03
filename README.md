@@ -59,6 +59,8 @@ sudo -E env PATH=$PATH python3 test_city_leds.py
 
 ## Test buttons - i2c
 
+VDD +
+VSS - GND
 Default MCP23017 address: 0x20
 
 Address lines A0, A1, A2 can be used to daisy-chain up to 8 MCP23017s:

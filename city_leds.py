@@ -97,8 +97,8 @@ class CityLeds:
     # ------------------------------------------------------------
     def _setup_default_segments(self):
 
-        self.add_segment("countdown", 0, 10)
-        self.add_segment("encoder_color", 15, 5)
+        self.add_segment("countdown", 0, 5)
+        self.add_segment("encoder_color", 6, )
         self.add_segment("core", 50, 15)
         self.add_segment("power", 70, 15)
         self.add_segment("rescue", 100, 15)

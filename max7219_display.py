@@ -119,8 +119,10 @@ class Max7219Display:
 
     def __init__(self, bus: int = 0, device: int = 0, intensity: int = 4,
                  max_speed_hz: int = 1000000, chain: "Max7219Chain" = None,
-                 module_index: int = 0, rotate180: bool = False):
+                 module_index: int = 0, rotate180: bool = False,
+                 rotate90: bool = False):
         self._rotate180 = rotate180
+        self._rotate90 = rotate90
         if chain is not None:
             self._chain = chain
             self._module_index = module_index
@@ -187,12 +189,28 @@ class Max7219Display:
         if len(rows) != 8:
             raise ValueError("rows must have exactly 8 values")
         rows = [r & 0xFF for r in rows]
+        if self._rotate90:
+            # 90° clockwise rotation of the 8x8 matrix.
+            rows = self._rotate90_cw(rows)
         if self._rotate180:
             # 180° rotation = reverse row order + mirror each row horizontally.
             rows = [self._reverse_byte(r) for r in reversed(rows)]
         self._rows = rows
         if show:
             self.show()
+
+    @staticmethod
+    def _rotate90_cw(rows: List[int]) -> List[int]:
+        # Rotate an 8x8 bit matrix 90° clockwise. Bit 0x80 = leftmost column.
+        # dst[r][c] = src[7 - c][r]
+        out = []
+        for r in range(8):
+            value = 0
+            for c in range(8):
+                if (rows[7 - c] >> (7 - r)) & 1:
+                    value |= 1 << (7 - c)
+            out.append(value)
+        return out
 
     @staticmethod
     def _reverse_byte(value: int) -> int:

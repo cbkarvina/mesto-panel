@@ -108,48 +108,28 @@ AREA_SEGMENT = {
     "doprava": "transport",
     "radnice": "core",
 }
-
-# Název místa na mapě pro hlášení.
-AREA_MAP_NAME = {
-    "posta": "POŠTA",
-    "izs": "ZÁCHRANNÉ CENTRUM",
-    "elektrarna": "ELEKTRÁRNA",
-    "doprava": "DOPRAVNÍ CENTRUM A CESTY",
-    "radnice": "RADNICE A ZBYTEK MĚSTA",
-}
+ 
 
 # Barvy volené tlačítkem button_color (index 0-9 → A-J dle městského dekodéru).
-COLORS_EN = ["red", "blue", "green", "yellow", "orange",
-             "purple", "white", "black", "brown", "gray"]
+COLORS_EN = ["red", "yellow", "green", "cyan", "blue", 
+             "magenta", "white", "black"]
 COLOR_RGB = {
     "red": (255, 0, 0),
-    "blue": (0, 0, 255),
+    "yellow": (255, 255, 0),
     "green": (0, 255, 0),
-    "yellow": (255, 180, 0),
-    "orange": (255, 80, 0),
-    "purple": (160, 0, 255),
+    "cyan": (0, 255, 255),
+    "blue": (0, 0, 255),
+    "magenta": (255, 0, 255),
     "white": (255, 255, 255),
     "black": (10, 10, 10),
-    "brown": (120, 60, 0),
-    "gray": (80, 80, 80),
 }
 
 # Globální odpočet po startu systému. Po jeho vypršení panel přestane reagovat.
-COUNTDOWN_DURATION = 1 * 60.0     # 1 minuta (s)
+COUNTDOWN_DURATION = 5 * 60.0     # 5 minut (s)
 COUNTDOWN_BAR_EMIT_INTERVAL = 0.5  # jak často se posílá stav pruhu (s)
 
 # Chybové hlášení při neplatném řídicím kódu.
-ERROR_INVALID_CODE = "Neplatný řídicí kód. Zkontrolujte nastavení panelu."
-
-# Hlášení finále (po odemčení všech pěti oblastí).
-FINALE_MESSAGES = [
-    "Bylo nalezeno všech pět fragmentů Kódu města.",
-    "Probíhá rekonstrukce hlavního řídicího klíče.",
-    "Rekonstrukce dokončena.",
-    "Centrální řídicí systém obnoven.",
-    "Vítejte, agenti. Tajemné město je opět v bezpečí.",
-]
-
+ERROR_INVALID_CODE = "Neplatný řídicí kód."
 
 class GameEngine:
     """Herní logika 'Tajemného města'.
@@ -385,12 +365,11 @@ class GameEngine:
 
     def _unlock_area(self, key: str):
         self.unlocked_areas.append(key)
-        segment = AREA_SEGMENT.get(key)
-        map_name = AREA_MAP_NAME.get(key, key)
+        segment = AREA_SEGMENT.get(key) 
 
         self.pending_events.append(EngineEvent(
             "message",
-            {"text": f"Přístup ověřen. Oblast {map_name} odemčena."}
+            {"text": f"Přístup ověřen. Oblast {key} odemčena."}
         ))
         if segment:
             self.pending_events.append(EngineEvent(
@@ -398,7 +377,7 @@ class GameEngine:
             ))
             self.pending_events.append(EngineEvent(
                 "map_reveal",
-                {"system": segment, "location": map_name, "day": UNITS[key]["day"]}
+                {"system": segment, "location": key, "day": UNITS[key]["day"]}
             ))
         self.pending_events.append(EngineEvent("sound", {"clip": "success"}))
         self.pending_events.append(EngineEvent(
@@ -414,8 +393,6 @@ class GameEngine:
         if not all(k in self.unlocked_areas for k in DAY_ORDER):
             return
         self._finale_done = True
-        for text in FINALE_MESSAGES:
-            self.pending_events.append(EngineEvent("message", {"text": text}))
         self.pending_events.append(EngineEvent("sound", {"clip": "finale"}))
         self.pending_events.append(EngineEvent("animation", {"kind": "finale"}))
 

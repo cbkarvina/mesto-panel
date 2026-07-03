@@ -112,14 +112,14 @@ class CityPanel:
 
             if self.chain is not None:
                 try:
-                    self.display = Max7219Display(chain=self.chain, module_index=0, intensity=4)
+                    self.display = Max7219Display(chain=self.chain, module_index=0, intensity=4, rotate180=True)
                     self.display.set_char("A")
                 except Max7219DisplayError as exc:
                     print(f"MAX7219 display #1 disabled: {exc}")
                     self.display = None
 
                 try:
-                    self.display2 = Max7219Display(chain=self.chain, module_index=1, intensity=4, rotate180=True)
+                    self.display2 = Max7219Display(chain=self.chain, module_index=1, intensity=4, rotate90=True)
                     self.display2.set_char("A")
                 except Max7219DisplayError as exc:
                     print(f"MAX7219 display #2 disabled: {exc}")
