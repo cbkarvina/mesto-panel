@@ -121,7 +121,7 @@ COLOR_RGB = {
     "blue": (0, 0, 255),
     "magenta": (255, 0, 255),
     "white": (255, 255, 255),
-    "black": (10, 10, 10),
+    "black": (2, 2, 2),
 }
 
 # Globální odpočet po startu systému. Po jeho vypršení panel přestane reagovat.

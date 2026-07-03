@@ -97,13 +97,13 @@ class CityLeds:
     # ------------------------------------------------------------
     def _setup_default_segments(self):
 
-        self.add_segment("encoder_color", 0, 5)
-        self.add_segment("countdown", 6, 20)
-        self.add_segment("core", 50, 15)
-        self.add_segment("power", 70, 15)
-        self.add_segment("rescue", 100, 15)
-        self.add_segment("comms", 120, 15)
-        self.add_segment("transport", 140, 15)
+        self.add_segment("encoder_color", 0, 4)
+        self.add_segment("countdown", 10, 20)
+        self.add_segment("core", 50, 5)
+        self.add_segment("power", 70, 5)
+        self.add_segment("rescue", 100, 5)
+        self.add_segment("comms", 120, 5)
+        self.add_segment("transport", 140, 5)
 
         # Nic není rezervované (přímý zápis do LED je volný).
         self.reserved_pixels = frozenset()

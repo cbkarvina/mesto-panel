@@ -86,7 +86,7 @@ class CityPanel:
         # ---------------------------
         if init_leds:
             self.leds = CityLeds(
-                led_count=184,     # includes 2x10 LEDs for encoder letter indicators
+                led_count=150,     # includes 2x10 LEDs for encoder letter indicators
                 brightness=0.1,   # lower = safer for power draw
             )
 
