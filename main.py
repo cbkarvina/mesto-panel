@@ -167,6 +167,8 @@ def main():
                         kind = ev.payload.get("kind")
                         if kind == "error":
                             panel.flash_alarm("alarm")
+                            # Špatný kód: stavový segment 3× červeně blikne.
+                            panel.blink_status(times=3, color=(255, 0, 0))
                         elif kind in ("success", "finale"):
                             # Zelená potvrzovací animace.
                             panel.set_indicator("alarm", (0, 255, 0), mode="blink")

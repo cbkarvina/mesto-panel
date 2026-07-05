@@ -116,6 +116,15 @@ class CityLeds:
         self._locked_flicker_at = 0.0
         self._locked_pattern: Dict[int, bool] = {}
 
+        # Krátký stavový problik (např. 3× červeně při špatném kódu).
+        # Dočasně přepíše běžné vykreslení daného segmentu, po dokončení mizí.
+        self._status_blink_segment: Optional[str] = None
+        self._status_blink_color: Color = RED
+        self._status_blink_remaining = 0   # počet zbývajících bliknutí
+        self._status_blink_on = False
+        self._status_blink_period = 0.2
+        self._status_blink_toggle_at = 0.0
+
     def add_segment(self, name: str, start: int, length: int):
         if start < 0 or length <= 0 or start + length > self.led_count:
             raise ValueError(f"Invalid segment {name}: start={start}, length={length}")
@@ -212,6 +221,27 @@ class CityLeds:
     def flash_alarm(self, name: str, color: Color = RED, period: float = 0.5):
         self.set_segment(name, color, mode="blink", period=period)
 
+    def blink_status(
+        self,
+        times: int = 3,
+        color: Color = RED,
+        period: float = 0.2,
+        segment: str = "countdown",
+    ):
+        """Krátce N× problikne stavovým segmentem (výchozí 'countdown').
+
+        Po dokončení se segment vrátí ke svému běžnému vykreslení (odpočet,
+        animace, ...). Používá se např. pro 3× červené bliknutí při špatném kódu.
+        """
+        if segment not in self.segments:
+            return
+        self._status_blink_segment = segment
+        self._status_blink_color = color
+        self._status_blink_period = max(0.05, period)
+        self._status_blink_remaining = max(1, times)
+        self._status_blink_on = True
+        self._status_blink_toggle_at = time.monotonic() + self._status_blink_period
+
     def pulse_segment(self, name: str, color: Color = CYAN, period: float = 1.2):
         self.set_segment(name, color, mode="pulse", period=period)
 
@@ -280,6 +310,9 @@ class CityLeds:
                 continue
             if name in self.locked_segments:
                 continue
+            # Stavový problik má přednost před běžným vykreslením segmentu.
+            if name == self._status_blink_segment:
+                continue
 
             if override is not None:
                 for offset, i in enumerate(range(seg.start, seg.start + seg.length)):
@@ -322,6 +355,21 @@ class CityLeds:
         if self.countdown_fraction is not None:
             color = self._lerp(GREEN, BLUE, 1.0 - self.countdown_fraction)
             for i in self._segment_indices("countdown"):
+                self._set_pixel(i, color)
+
+        # Krátký stavový problik (přepíše běžné vykreslení daného segmentu).
+        if self._status_blink_segment is not None:
+            seg_name = self._status_blink_segment
+            if now >= self._status_blink_toggle_at:
+                self._status_blink_toggle_at = now + self._status_blink_period
+                self._status_blink_on = not self._status_blink_on
+                if not self._status_blink_on:
+                    # Konec jedné ON fáze = jedno bliknutí.
+                    self._status_blink_remaining -= 1
+                    if self._status_blink_remaining <= 0:
+                        self._status_blink_segment = None
+            color = self._status_blink_color if self._status_blink_on else BLACK
+            for i in self._segment_indices(seg_name):
                 self._set_pixel(i, color)
 
         # Zamčené oblasti: náhodné červené blikání (vzor se přegeneruje periodicky).

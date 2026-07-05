@@ -297,6 +297,12 @@ class CityPanel:
             return
         self.leds.flash_alarm(system_name)
 
+    def blink_status(self, times: int = 3, color=(255, 0, 0), period: float = 0.2):
+        """Krátce N× problikne stavovým segmentem (výchozí 'countdown')."""
+        if self.leds is None:
+            return
+        self.leds.blink_status(times=times, color=color, period=period)
+
     def set_indicator(self, name: str, color, mode: str = "solid"):
         if self.leds is None or name not in self.leds.segments:
             return
