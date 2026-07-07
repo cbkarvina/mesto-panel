@@ -102,9 +102,9 @@ class CityPanel:
         if init_display:
             # All three MAX7219 modules are daisy-chained on a single SPI line.
             # Order from the Pi's MOSI/DIN (module 0 = closest):
-            #   module 0 = matrix #1 ("first chip")  -> encoder_number (letter)
-            #   module 1 = matrix #2 ("second chip") -> encoder_glyph (digit)
-            #   module 2 = matrix #3 ("second chip") -> encoder_letter (symbol)
+            #   module 0 = matrix #1 -> encoder_number (letter)
+            #   module 1 = matrix #2 -> encoder_glyph (digit)
+            #   module 2 = matrix #3 -> encoder_letter (symbol)
             #   module 3 = 7-segment                 -> COMMS morse
             try:
                 self.chain = Max7219Chain(bus=0, device=0, num_modules=4)
@@ -327,29 +327,29 @@ class CityPanel:
     # ------------------------------------------------------------------
     # DISPLAY HELPERS
     # ------------------------------------------------------------------
-    def set_display1_char(self, char: str):
+    def set_display_glyph(self, index: int):
+        if self.display2 is None:
+            return
+        self.display2.set_glyph_by_index(index)
+
+    def set_display_char(self, char: str):
         if self.display is None:
             return
         self.display.set_char(char)
-
-    def set_display3_letter_index(self, index: int):
+  
+    def set_display_letter(self, index: int):
         if self.display3 is None:
             return
         self.display3.set_index_letter(index)
-  
-    def set_display2_symbol_index(self, index: int):
-        if self.display2 is None:
-            return
-        self.display2.set_index_symbol(index)
  
 
     def set_encoder_display(self, encoder_name: str, index: int):
         if encoder_name == "encoder_number" or (encoder_name == "encoder_number_letter" and self.read_encoder_switches()):
-            self.set_display3_letter_index(index)
+            self.set_display_number(index)
         elif encoder_name == "encoder_glyph":
-            self.set_display2_symbol_index(index)
+            self.set_display_glyph(index)
         elif encoder_name == "encoder_letter" or (encoder_name == "encoder_number_letter" and not self.read_encoder_switches()):
-            self.set_display1_char(str(index % 10))
+            self.set_display_char(str(index % 10))
 
     def set_display7seg_text(self, text: str):
         if self.display7seg is None:

@@ -230,7 +230,7 @@ class Max7219Display:
         letter = chr(ord("A") + (index % 10))
         self.set_char(letter, show=show)
 
-    def set_index_symbol(self, index: int, show: bool = True):
+    def set_glyph_by_index(self, index: int, show: bool = True):
         # Cycle through the 10 custom SYMBOLS glyphs (0..9).
         rows = SYMBOLS[index % len(SYMBOLS)]
         self.set_rows(rows, show=show)

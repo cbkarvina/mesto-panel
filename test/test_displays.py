@@ -66,7 +66,7 @@ def _test_first_chip_letters_numbers(display):
 def _test_second_chip_symbols(display):
     print("Test 4: Second chip -> symbols 0-9")
     for idx in range(len(SYMBOLS)):
-        display.set_index_symbol(idx)
+        display.set_glyph_by_index(idx)
         print(f"  symbol index={idx}")
         time.sleep(STEP)
 
@@ -97,7 +97,7 @@ def _test_blink(matrices, seven_seg):
         time.sleep(0.2)
         matrices[0].set_char("A")
         if len(matrices) > 1:
-            matrices[1].set_index_symbol(0)
+            matrices[1].set_glyph_by_index(0)
         if seven_seg is not None:
             seven_seg.set_morse(".-.-.")
         time.sleep(0.2)
