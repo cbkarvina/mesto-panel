@@ -100,10 +100,10 @@ class CityLeds:
         self.add_segment("encoder_color", 0, 4)
         self.add_segment("countdown", 9, 26)
         self.add_segment("comms", 37, 41) # 1
-        self.add_segment("power", 78, 41) # 2
-        self.add_segment("core", 119, 38)
-        self.add_segment("rescue", 157, 42)
-        self.add_segment("transport", 199, 40) # last
+        self.add_segment("power", 78, 40) # 2
+        self.add_segment("core", 118, 38)
+        self.add_segment("rescue", 156, 42)
+        self.add_segment("transport", 198, 40) # last
 
         # Nic není rezervované (přímý zápis do LED je volný).
         self.reserved_pixels = frozenset()
@@ -323,6 +323,27 @@ class CityLeds:
                 continue
 
             if anim.mode == "flow":
+                # Jeden světelný bod putující přes segment (odemčená oblast).
+                if anim.period <= 0:
+                    for i in range(seg.start, seg.start + seg.length):
+                        self._set_pixel(i, anim.color)
+                else:
+                    length = seg.length
+                    phase = (now % anim.period) / anim.period
+                    head = phase * length            # pozice bodu (0..length)
+                    tail = 3.0                        # délka doznívajícího ohonu (v LED)
+                    for offset, i in enumerate(range(seg.start, seg.start + length)):
+                        # Vzdálenost pixelu za hlavou (ohon se táhne dozadu).
+                        dist = (head - offset) % length
+                        if dist < tail:
+                            b = 1.0 - (dist / tail)
+                            self._set_pixel(i, scale_color(anim.color, b))
+                        else:
+                            self._set_pixel(i, BLACK)
+                continue
+
+
+            if anim.mode == "flow_wave":
                 # Plynulá zelená vlna běžící přes segment (odemčená oblast).
                 if anim.period <= 0:
                     for i in range(seg.start, seg.start + seg.length):
