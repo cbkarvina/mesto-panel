@@ -98,7 +98,7 @@ class CityLeds:
 
         self.add_segment("encoder_color", 0, 4)
         self.add_segment("countdown", 9, 26)
-        self.add_segment("comms", 37, 35)
+        self.add_segment("comms", 37, 41)
         self.add_segment("power", 130, 30)
         self.add_segment("core", 170, 30)
         self.add_segment("rescue", 210, 30)
