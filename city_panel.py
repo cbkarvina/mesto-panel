@@ -328,14 +328,14 @@ class CityPanel:
     # DISPLAY HELPERS
     # ------------------------------------------------------------------
     def set_display_glyph(self, index: int):
-        if self.display2 is None:
-            return
-        self.display2.set_glyph_by_index(index)
-
-    def set_display_char(self, char: str):
         if self.display is None:
             return
-        self.display.set_char(char)
+        self.display.set_glyph_by_index(index)
+
+    def set_display_char(self, char: str):
+        if self.display2 is None:
+            return
+        self.display2.set_char(char)
   
     def set_display_number(self, index: int):
         if self.display3 is None:
