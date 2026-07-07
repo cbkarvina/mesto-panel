@@ -337,7 +337,7 @@ class CityPanel:
             return
         self.display.set_char(char)
   
-    def set_display_letter(self, index: int):
+    def set_display_number(self, index: int):
         if self.display3 is None:
             return
         self.display3.set_index_letter(index)
