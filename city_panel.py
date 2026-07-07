@@ -327,7 +327,7 @@ class CityPanel:
     # ------------------------------------------------------------------
     # DISPLAY HELPERS
     # ------------------------------------------------------------------
-    def set_display_char(self, char: str):
+    def set_display1_char(self, char: str):
         if self.display is None:
             return
         self.display.set_char(char)
@@ -347,9 +347,9 @@ class CityPanel:
         if encoder_name == "encoder_number" or (encoder_name == "encoder_number_letter" and self.read_encoder_switches()):
             self.set_display3_letter_index(index)
         elif encoder_name == "encoder_glyph":
-            self.set_display_char(str(index % 10))
-        elif encoder_name == "encoder_letter" or (encoder_name == "encoder_letter" and not self.read_encoder_switches()):
             self.set_display2_symbol_index(index)
+        elif encoder_name == "encoder_letter" or (encoder_name == "encoder_number_letter" and not self.read_encoder_switches()):
+            self.set_display1_char(str(index % 10))
 
     def set_display7seg_text(self, text: str):
         if self.display7seg is None:
