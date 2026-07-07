@@ -99,9 +99,9 @@ class CityLeds:
         self.add_segment("encoder_color", 0, 4)
         self.add_segment("countdown", 9, 26)
         self.add_segment("comms", 37, 41) # 1
-        self.add_segment("power", 78, 42) # 2
-        self.add_segment("core", 121, 38)
-        self.add_segment("rescue", 210, 30)
+        self.add_segment("power", 78, 41) # 2
+        self.add_segment("core", 119, 38)
+        self.add_segment("rescue", 157, 30)
         self.add_segment("transport", 248, 50)
 
         # Nic není rezervované (přímý zápis do LED je volný).
