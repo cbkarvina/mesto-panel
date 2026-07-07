@@ -98,11 +98,11 @@ class CityLeds:
 
         self.add_segment("encoder_color", 0, 4)
         self.add_segment("countdown", 10, 20)
-        self.add_segment("core", 50, 5)
-        self.add_segment("power", 70, 5)
-        self.add_segment("rescue", 100, 5)
-        self.add_segment("comms", 120, 5)
-        self.add_segment("transport", 140, 5)
+        self.add_segment("core", 50, 15)
+        self.add_segment("power", 70, 15)
+        self.add_segment("rescue", 100, 15)
+        self.add_segment("comms", 120, 15)
+        self.add_segment("transport", 140, 15)
 
         # Nic není rezervované (přímý zápis do LED je volný).
         self.reserved_pixels = frozenset()
@@ -157,9 +157,10 @@ class CityLeds:
         return
 
     def set_central_bar(self, fraction: Optional[float], show: bool = True):
-        """Odpočet na segmentu 'countdown': fade zelená → modrá.
+        """Odpočet na segmentu 'countdown': ubývající pruh, fade zelená → červená.
 
-        fraction 1.0 = zelená (plný čas) → 0.0 = modrá (konec); None = zhasnout.
+        fraction 1.0 = plný zelený pruh (plný čas) → 0.0 = prázdno/červená
+        (konec); None = zhasnout. Počet rozsvícených LED klesá úměrně fraction.
         """
         if fraction is None:
             self.countdown_fraction = None
@@ -351,11 +352,13 @@ class CityLeds:
             for i in range(seg.start, seg.start + seg.length):
                 self._set_pixel(i, color)
 
-        # Odpočet (segment "countdown"): fade zelená → modrá.
+        # Odpočet (segment "countdown"): ubývající pruh + fade zelená → červená.
         if self.countdown_fraction is not None:
-            color = self._lerp(GREEN, BLUE, 1.0 - self.countdown_fraction)
-            for i in self._segment_indices("countdown"):
-                self._set_pixel(i, color)
+            seg = self.segments["countdown"]
+            color = self._lerp(GREEN, RED, 1.0 - self.countdown_fraction)
+            lit = int(round(self.countdown_fraction * seg.length))
+            for offset, i in enumerate(self._segment_indices("countdown")):
+                self._set_pixel(i, color if offset < lit else BLACK)
 
         # Krátký stavový problik (přepíše běžné vykreslení daného segmentu).
         if self._status_blink_segment is not None:

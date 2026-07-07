@@ -73,7 +73,13 @@ def main():
 
     def on_panel_event(ev):
         active = panel.is_active(ev.name)
-        print(f"PANEL: {ev.name:16s} {ev.event_type:10s} active={active}")
+        # Log every button/switch/encoder event to stdout (systemd journal).
+        # flush=True so lines appear immediately under block-buffered stdout.
+        print(
+            f"PANEL: {ev.name:16s} {ev.event_type:10s} "
+            f"state={ev.state} active={active}",
+            flush=True,
+        )
 
         engine.handle_panel_event(
             name=ev.name,

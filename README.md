@@ -117,6 +117,7 @@ sudo cp mesto-panel.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now mesto-panel
 sudo journalctl -u mesto-panel -f
+sudo journalctl -u mesto-panel -n 50 --no-pager
 ```
 
 Služba se ukončí čistě přes SIGTERM (`systemctl stop mesto-panel`), hardware se uvolní.

@@ -7,6 +7,9 @@ Wants=multi-user.target
 [Service]
 Type=simple
 
+# Force unbuffered stdout/stderr so log lines reach the journal immediately.
+Environment=PYTHONUNBUFFERED=1
+
 # --- ADJUST THESE PATHS TO MATCH THE RASPBERRY PI ---
 # Absolute path to the project directory on the Pi.
 WorkingDirectory=/home/rpi/mesto-panel
