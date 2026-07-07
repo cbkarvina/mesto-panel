@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tajemné město — ovládací panel</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 1rem;
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+        background: #0f1419;
+        color: #e6edf3;
+      }
+      h1 {
+        font-size: 1.3rem;
+        margin: 0 0 1rem;
+      }
+      h2 {
+        font-size: 1rem;
+        margin: 0 0 0.6rem;
+        color: #9fb3c8;
+      }
+      .grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+      .card {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 10px;
+        padding: 1rem;
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+        border: 1px solid #30363d;
+        background: #21262d;
+        color: #e6edf3;
+        border-radius: 8px;
+        padding: 0.5rem 0.8rem;
+        margin: 0.2rem 0.2rem 0 0;
+      }
+      button:hover {
+        background: #2d333b;
+      }
+      button:active {
+        transform: translateY(1px);
+      }
+      button.primary {
+        background: #238636;
+        border-color: #2ea043;
+      }
+      button.primary:hover {
+        background: #2ea043;
+      }
+      button.danger {
+        background: #8b1a1a;
+        border-color: #b62324;
+      }
+      button.danger:hover {
+        background: #b62324;
+      }
+      label {
+        display: block;
+        font-size: 0.8rem;
+        color: #9fb3c8;
+        margin: 0.5rem 0 0.2rem;
+      }
+      input,
+      select {
+        font: inherit;
+        width: 100%;
+        padding: 0.4rem 0.5rem;
+        background: #0d1117;
+        color: #e6edf3;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+      }
+      .row {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .row > * {
+        flex: 1 1 0;
+        min-width: 90px;
+      }
+      .status-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.3rem 0.8rem;
+        font-size: 0.9rem;
+      }
+      .status-grid .k {
+        color: #9fb3c8;
+      }
+      .status-grid .v {
+        font-variant-numeric: tabular-nums;
+      }
+      pre {
+        margin: 0;
+        padding: 0.6rem;
+        background: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        max-height: 260px;
+        overflow: auto;
+        font-size: 0.8rem;
+        white-space: pre-wrap;
+      }
+      .muted {
+        color: #6e7781;
+        font-size: 0.8rem;
+      }
+      .dot {
+        display: inline-block;
+        width: 0.7rem;
+        height: 0.7rem;
+        border-radius: 50%;
+        vertical-align: middle;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Tajemné město — ovládací panel</h1>
+
+    <div class="grid">
+      <!-- STATUS -->
+      <section class="card">
+        <h2>
+          Stav <span id="live" class="dot" style="background: #6e7781"></span>
+        </h2>
+        <div class="status-grid">
+          <div class="k">Odpočet</div>
+          <div class="v" id="st-countdown">–</div>
+          <div class="k">Aktivní oblast</div>
+          <div class="v" id="st-active">–</div>
+          <div class="k">Odemčené</div>
+          <div class="v" id="st-unlocked">–</div>
+          <div class="k">Barva</div>
+          <div class="v" id="st-color">–</div>
+          <div class="k">Morse</div>
+          <div class="v" id="st-morse">–</div>
+        </div>
+        <div style="margin-top: 0.6rem">
+          <button onclick="refreshStatus()">Obnovit</button>
+          <button onclick="call('GET', '/api/inputs')">Vstupy</button>
+          <button onclick="call('GET', '/api/leds')">LED</button>
+        </div>
+      </section>
+
+      <!-- ODEMČENÍ / ZAMČENÍ -->
+      <section class="card">
+        <h2>Oblasti (dny 1–5)</h2>
+        <div class="muted">Odemknout bez ověření kódu</div>
+        <div id="unlock-buttons" class="row"></div>
+        <div class="muted" style="margin-top: 0.6rem">Zamknout</div>
+        <div id="lock-buttons" class="row"></div>
+      </section>
+
+      <!-- RESTART -->
+      <section class="card">
+        <h2>Restart hry</h2>
+        <label for="countdown">Odpočet (sekundy)</label>
+        <input id="countdown" type="number" min="1" value="300" />
+        <div style="margin-top: 0.6rem">
+          <button class="danger" onclick="restart()">Restartovat</button>
+        </div>
+      </section>
+
+      <!-- KÓD OBLASTI -->
+      <section class="card">
+        <h2>Nastavit kód a zamknout</h2>
+        <div class="row">
+          <div>
+            <label for="code-day">Den</label>
+            <select id="code-day">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </div>
+          <div>
+            <label for="code-color">Barva</label>
+            <select id="code-color"></select>
+          </div>
+          <div>
+            <label for="code-glyph">Symbol</label>
+            <select id="code-glyph"></select>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="code-letter">Písmeno (A–J)</label>
+            <input id="code-letter" maxlength="1" value="A" />
+          </div>
+          <div>
+            <label for="code-number">Číslo (0–9)</label>
+            <input id="code-number" type="number" min="0" max="9" value="0" />
+          </div>
+          <div>
+            <label for="code-morse">Morse (písmeno)</label>
+            <input id="code-morse" maxlength="1" value="M" />
+          </div>
+        </div>
+        <div style="margin-top: 0.6rem">
+          <button class="primary" onclick="lockWithCode()">
+            Zamknout s kódem
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top: 1rem">
+      <h2>Odpověď API</h2>
+      <pre id="log">Připraveno.</pre>
+    </section>
+
+    <script>
+      const COLORS = [
+        "red",
+        "yellow",
+        "green",
+        "cyan",
+        "blue",
+        "magenta",
+        "white",
+        "black",
+      ];
+      const GLYPHS = [
+        "heart",
+        "smiley",
+        "star",
+        "lightning",
+        "arrow_up",
+        "arrow_down",
+        "key",
+        "eye",
+        "hourglass",
+        "music",
+      ];
+
+      function fill(id, values) {
+        const sel = document.getElementById(id);
+        sel.innerHTML = values
+          .map((v) => `<option value="${v}">${v}</option>`)
+          .join("");
+      }
+      fill("code-color", COLORS);
+      fill("code-glyph", GLYPHS);
+
+      for (let d = 1; d <= 5; d++) {
+        const u = document.createElement("button");
+        u.textContent = "Den " + d;
+        u.onclick = () => call("POST", "/api/unlock/" + d);
+        document.getElementById("unlock-buttons").appendChild(u);
+
+        const l = document.createElement("button");
+        l.textContent = "Den " + d;
+        l.onclick = () => call("POST", "/api/lock/" + d);
+        document.getElementById("lock-buttons").appendChild(l);
+      }
+
+      function logOut(obj) {
+        const ts = new Date().toLocaleTimeString();
+        document.getElementById("log").textContent =
+          `[${ts}]\n` +
+          (typeof obj === "string" ? obj : JSON.stringify(obj, null, 2));
+      }
+
+      async function call(method, url, body) {
+        try {
+          const opts = { method };
+          if (body !== undefined) {
+            opts.headers = { "Content-Type": "application/json" };
+            opts.body = JSON.stringify(body);
+          }
+          const res = await fetch(url, opts);
+          const data = await res.json().catch(() => ({}));
+          logOut({ status: res.status, url, data });
+          return data;
+        } catch (err) {
+          logOut("Chyba: " + err);
+        }
+      }
+
+      function fmtTime(s) {
+        s = Math.max(0, Math.round(s));
+        const m = Math.floor(s / 60);
+        return `${m}:${String(s % 60).padStart(2, "0")}`;
+      }
+
+      async function refreshStatus() {
+        try {
+          const res = await fetch("/api/status");
+          const d = await res.json();
+          const cd = d.countdown || {};
+          document.getElementById("st-countdown").textContent = cd.dead
+            ? "DEAD"
+            : cd.active
+              ? fmtTime(cd.remaining)
+              : "neaktivní";
+          document.getElementById("st-active").textContent =
+            d.active_area || "—";
+          document.getElementById("st-unlocked").textContent =
+            d.unlocked_areas && d.unlocked_areas.length
+              ? d.unlocked_areas.join(", ")
+              : "žádné";
+          document.getElementById("st-color").textContent = d.color || "—";
+          document.getElementById("st-morse").textContent = d.morse || "—";
+          document.getElementById("live").style.background = "#2ea043";
+        } catch (err) {
+          document.getElementById("live").style.background = "#b62324";
+        }
+      }
+
+      function restart() {
+        const seconds = parseInt(
+          document.getElementById("countdown").value,
+          10,
+        );
+        call("POST", "/api/restart", { countdown: seconds }).then(
+          refreshStatus,
+        );
+      }
+
+      function lockWithCode() {
+        const day = document.getElementById("code-day").value;
+        const body = {
+          morse: document.getElementById("code-morse").value,
+          color: document.getElementById("code-color").value,
+          number: parseInt(document.getElementById("code-number").value, 10),
+          letter: document.getElementById("code-letter").value,
+          glyph: document.getElementById("code-glyph").value,
+        };
+        call("POST", "/api/lock/" + day, body).then(refreshStatus);
+      }
+
+      refreshStatus();
+      setInterval(refreshStatus, 2000);
+    </script>
+  </body>
+</html>

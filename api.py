@@ -19,7 +19,15 @@ from city_panel import CityPanel
 
 
 def create_app(panel: "CityPanel", engine: "GameEngine", engine_lock: threading.Lock) -> Flask:
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder="static", static_url_path="/static")
+
+    # ------------------------------------------------------------------
+    # WEB UI
+    # ------------------------------------------------------------------
+    @app.get("/")
+    def index():
+        """Jednoduchá webová stránka s tlačítky pro spouštění API volání."""
+        return app.send_static_file("index.html")
 
     # ------------------------------------------------------------------
     # READ ENDPOINTS
