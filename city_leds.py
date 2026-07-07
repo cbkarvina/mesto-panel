@@ -262,38 +262,38 @@ class CityLeds:
         else:
             self.locked_segments.add(system_name)
 
-    def set_encoder_letter(self, encoder_name: str, index: int, show: bool = True):
-        """
-        Display current encoder letter position on a 10-LED bar as a single dot.
-        index: 0..9 where 0=A and 9=J.
-        Exactly one LED is ON at a time.
-        """
-        if encoder_name == "encoder_number":
-            segment_name = "encoder1_letters"
-            on_color = CYAN
-        elif encoder_name == "encoder_glyph":
-            segment_name = "encoder2_letters"
-            on_color = MAGENTA
-        else:
-            # Encoders without a dedicated LED letter bar (e.g. encoder_letter)
-            # only drive the MAX7219 display, so there is nothing to light here.
-            return
+    # def set_encoder_letter(self, encoder_name: str, index: int, show: bool = True):
+    #     """
+    #     Display current encoder letter position on a 10-LED bar as a single dot.
+    #     index: 0..9 where 0=A and 9=J.
+    #     Exactly one LED is ON at a time.
+    #     """
+    #     if encoder_name == "encoder_number":
+    #         segment_name = "encoder1_letters"
+    #         on_color = CYAN
+    #     elif encoder_name == "encoder_glyph":
+    #         segment_name = "encoder2_letters"
+    #         on_color = MAGENTA
+    #     else:
+    #         # Encoders without a dedicated LED letter bar (e.g. encoder_letter)
+    #         # only drive the MAX7219 display, so there is nothing to light here.
+    #         return
 
-        if segment_name not in self.segments:
-            return
+    #     if segment_name not in self.segments:
+    #         return
 
-        idx = index % 10
-        override: List[Color] = []
+    #     idx = index % 10
+    #     override: List[Color] = []
 
-        for offset, pixel_index in enumerate(self._segment_indices(segment_name)):
-            color = on_color if offset == idx else BLACK
-            self._set_pixel(pixel_index, color)
-            override.append(color)
+    #     for offset, pixel_index in enumerate(self._segment_indices(segment_name)):
+    #         color = on_color if offset == idx else BLACK
+    #         self._set_pixel(pixel_index, color)
+    #         override.append(color)
 
-        self.segment_overrides[segment_name] = override
+    #     self.segment_overrides[segment_name] = override
 
-        if show:
-            self.show()
+    #     if show:
+    #         self.show()
 
     # ------------------------------------------------------------
     # Update animations

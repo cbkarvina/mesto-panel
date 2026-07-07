@@ -35,6 +35,7 @@ class CityPanel:
         self.chain = None
         self.display = None
         self.display2 = None
+        self.display3 = None
         self.display7seg = None
         self._encoder_display_state = {
             "encoder_number": 0,
@@ -45,6 +46,8 @@ class CityPanel:
         self._display1_clear_at: Optional[float] = None
         # When set, display2 is cleared once time.monotonic() reaches this value.
         self._display2_clear_at: Optional[float] = None
+        # When set, display3 is cleared once time.monotonic() reaches this value.
+        self._display3_clear_at: Optional[float] = None
         # COMMS 7-seg: live morse preview + timed word display after submit.
         self._display7seg_revert_at: Optional[float] = None
         self._last_morse_code = ""
@@ -100,12 +103,11 @@ class CityPanel:
             # All three MAX7219 modules are daisy-chained on a single SPI line.
             # Order from the Pi's MOSI/DIN (module 0 = closest):
             #   module 0 = matrix #1 ("first chip")  -> encoder_number (letter)
-            #                                           a encoder_glyph (digit)
-            #                                           se střídají na této matici
-            #   module 1 = matrix #2 ("second chip") -> encoder_letter (symbol)
-            #   module 2 = 7-segment                 -> COMMS morse
+            #   module 1 = matrix #2 ("second chip") -> encoder_glyph (digit)
+            #   module 2 = matrix #3 ("second chip") -> encoder_letter (symbol)
+            #   module 3 = 7-segment                 -> COMMS morse
             try:
-                self.chain = Max7219Chain(bus=0, device=0, num_modules=3)
+                self.chain = Max7219Chain(bus=0, device=0, num_modules=4)
             except Max7219DisplayError as exc:
                 print(f"MAX7219 chain disabled: {exc}")
                 self.chain = None
@@ -124,9 +126,16 @@ class CityPanel:
                 except Max7219DisplayError as exc:
                     print(f"MAX7219 display #2 disabled: {exc}")
                     self.display2 = None
+                
+                try:
+                    self.display3 = Max7219Display(chain=self.chain, module_index=2, intensity=4, rotate180=True, rotate90=True)
+                    self.display3.set_char("1")
+                except Max7219DisplayError as exc:
+                    print(f"MAX7219 display #3 disabled: {exc}")
+                    self.display3 = None
 
                 try:
-                    self.display7seg = Max7219SevenSegDisplay(chain=self.chain, module_index=2, intensity=4)
+                    self.display7seg = Max7219SevenSegDisplay(chain=self.chain, module_index=3, intensity=4)
                     self.display7seg.clear()
                 except Max7219DisplayError as exc:
                     print(f"MAX7219 7-seg display disabled: {exc}")
@@ -137,15 +146,13 @@ class CityPanel:
     # ------------------------------------------------------------------
     def _setup_inputs(self):
         # ===== MCP1 =====
-        self.inputs.add_encoder("encoder_number", self.mcp1, pin_a=0, pin_b=1)
+        self.inputs.add_encoder("encoder_number_letter", self.mcp1, pin_a=0, pin_b=1)
         self.inputs.add_encoder("encoder_glyph", self.mcp1, pin_a=2, pin_b=3)
-        self.inputs.add_encoder("encoder_letter", self.mcp1, pin_a=5, pin_b=4, reverse=True)
+        # self.inputs.add_encoder("encoder_letter", self.mcp1, pin_a=5, pin_b=4, reverse=True)
         self.inputs.add_button("unlock_button", self.mcp1, 6)
         self.inputs.add_button("button_color", self.mcp1, 7)
-
-        # Tlačítko "morse cycle" volí, kolik z 5 přepínačů tvoří kód (1..5);
-        # zbylé přepínače se ignorují. Morse číslice mají 5 znaků → 5 přepínačů.
-        self.inputs.add_button("morse_cycle", self.mcp1, 8)
+        self.inputs.add_button("morse_cycle", self.mcp1, 8) # Tlačítko "morse cycle" volí, kolik z 5 přepínačů tvoří kód (1..5);
+        self.inputs.add_switch("encoder_switch", self.mcp1, 9)
 
         # 5 přepínačů Morse (zapnuto = tečka '.', vypnuto = čárka '-').
         # Každý přepínač = jedna pozice kódu zobrazeného na 7-segmentovém panelu.
@@ -200,6 +207,8 @@ class CityPanel:
                         self.display.clear(show=True)
                     if self.display2 is not None:
                         self.display2.clear(show=True)
+                    if self.display3 is not None:
+                        self.display3.clear(show=True)
                     if self.display7seg is not None:
                         self.display7seg.set_morse(self._last_morse_code)
                 else:
@@ -219,6 +228,13 @@ class CityPanel:
             self._display2_clear_at = None
             if self.display2 is not None:
                 self.display2.clear(show=True)
+        if (
+            self._display3_clear_at is not None
+            and time.monotonic() >= self._display3_clear_at
+        ):
+            self._display3_clear_at = None
+            if self.display3 is not None:
+                self.display3.clear(show=True)
         # One-shot 7-seg animation (non-blocking). Takes precedence over the
         # revert/blink timers, which are cancelled when it starts.
         if self._anim7seg_frames is not None and self.display7seg is not None:
@@ -287,10 +303,10 @@ class CityPanel:
             raise RuntimeError("Panel LEDs are not initialized")
         self.leds.set_system_status(system_name, status, animate=animate)
 
-    def set_encoder_letter(self, encoder_name: str, index: int, show: bool = True):
-        if self.leds is None:
-            raise RuntimeError("Panel LEDs are not initialized")
-        self.leds.set_encoder_letter(encoder_name, index, show=show)
+    # def set_encoder_letter(self, encoder_name: str, index: int, show: bool = True):
+    #     if self.leds is None:
+    #         raise RuntimeError("Panel LEDs are not initialized")
+    #     self.leds.set_encoder_letter(encoder_name, index, show=show)
 
     def flash_alarm(self, system_name: str):
         if self.leds is None or system_name not in self.leds.segments:
@@ -316,55 +332,23 @@ class CityPanel:
             return
         self.display.set_char(char)
 
-    def set_display_letter_index(self, index: int):
-        if self.display is None:
+    def set_display3_letter_index(self, index: int):
+        if self.display3 is None:
             return
-        self.display.set_index_letter(index)
-
-    def set_display_symbol_index(self, index: int):
-        if self.display is None:
-            return
-        self.display.set_index_symbol(index)
-
-    def set_display2_char(self, char: str):
-        if self.display2 is None:
-            return
-        self.display2.set_char(char)
-
-    def set_display2_letter_index(self, index: int):
-        if self.display2 is None:
-            return
-        self.display2.set_index_letter(index)
-
+        self.display3.set_index_letter(index)
+  
     def set_display2_symbol_index(self, index: int):
         if self.display2 is None:
             return
         self.display2.set_index_symbol(index)
-
-    def show_display2_morse_preview(self, char: Optional[str], seconds: float = 2.0):
-        """Náhled dekódovaného morse znaku na display2 na pár sekund.
-
-        char=None (neplatný/prázdný kód) display2 rovnou zhasne.
-        """
-        if self.display2 is None:
-            return
-        if char:
-            self.display2.set_char(char)
-            self._display2_clear_at = time.monotonic() + seconds
-        else:
-            self.display2.clear(show=True)
-            self._display2_clear_at = None
+ 
 
     def set_encoder_display(self, encoder_name: str, index: int):
-        # 2 matice + 7-segment v jednom řetězci:
-        #   encoder_number (písmeno A..J) a encoder_glyph (číslice 0..9) se
-        #     střídají na první matici (display) — vidět je naposledy otočený.
-        #   encoder_letter (symbol) má druhou matici (display2).
-        if encoder_name == "encoder_number":
-            self.set_display_letter_index(index)
+        if encoder_name == "encoder_number" or (encoder_name == "encoder_number_letter" and self.read_encoder_switches()):
+            self.set_display3_letter_index(index)
         elif encoder_name == "encoder_glyph":
             self.set_display_char(str(index % 10))
-        elif encoder_name == "encoder_letter":
+        elif encoder_name == "encoder_letter" or (encoder_name == "encoder_letter" and not self.read_encoder_switches()):
             self.set_display2_symbol_index(index)
 
     def set_display7seg_text(self, text: str):
@@ -431,6 +415,8 @@ class CityPanel:
                 self.display.set_rows(rows)
             if self.display2 is not None:
                 self.display2.set_rows(rows)
+            if self.display3 is not None:
+                self.display3.set_rows(rows)
         if seg is not None and self.display7seg is not None:
             self.display7seg.set_text(seg)
 
@@ -520,6 +506,15 @@ class CityPanel:
                 states[name] = False
         return states
 
+    def read_encoder_switches(self) -> bool:
+        """Vrátí aktuální stav encoder přepínače: bool.
+
+        bool = je přepínač aktivní (sepnutý).
+        """
+        if self.inputs is not None and "encoder_switch" in self.inputs.inputs:
+            return self.inputs.is_active("encoder_switch")
+        return False
+
     def read_morse_code(self) -> str:
         """Sestaví morse řetězec z 5 přepínačů (ON = '.', OFF = '-')."""
         states = self.read_morse_switches()
@@ -555,6 +550,8 @@ class CityPanel:
             self.display.close()
         if self.display2 is not None:
             self.display2.close()
+        if self.display3 is not None:
+            self.display3.close()
         if self.display7seg is not None:
             self.display7seg.close()
         if self.chain is not None:
