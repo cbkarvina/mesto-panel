@@ -332,26 +332,30 @@ class CityPanel:
             return
         self.display.set_glyph_by_index(index)
 
-    def set_display_char(self, char: str):
+    def set_display2_number(self, index: int):
+        """Číslice 0-9 na druhé matici (display2)."""
         if self.display2 is None:
             return
-        self.display2.set_char(char)
-  
-    def set_display_number(self, index: int):
+        self.display2.set_char(str(index % 10))
+
+    def set_display3_letter(self, index: int):
+        """Písmeno A-J na třetí matici (display3)."""
         if self.display3 is None:
             return
         self.display3.set_index_letter(index)
- 
 
     def set_encoder_display(self, encoder_name: str, index: int):
-        print(f"set_encoder_display: {encoder_name}")
-        print(f"self.read_encoder_switches(): {self.read_encoder_switches()}")
-        if encoder_name == "encoder_number" or (encoder_name == "encoder_number_letter" and self.read_encoder_switches()):
-            self.set_display_number(index)
+        # encoder_number_letter sdílí jeden enkodér pro číslice i písmena;
+        # přepínač encoder_switch volí, kam se hodnota zobrazí:
+        #   sepnuto (ON)    -> číslice 0-9 na display2,
+        #   rozepnuto (OFF) -> písmeno A-J na display3.
+        if encoder_name == "encoder_number_letter":
+            if self.read_encoder_switches():
+                self.set_display2_number(index)
+            else:
+                self.set_display3_letter(index)
         elif encoder_name == "encoder_glyph":
             self.set_display_glyph(index)
-        elif encoder_name == "encoder_letter" or (encoder_name == "encoder_number_letter" and not self.read_encoder_switches()):
-            self.set_display_char(str(index % 10))
 
     def set_display7seg_text(self, text: str):
         if self.display7seg is None:
@@ -525,18 +529,14 @@ class CityPanel:
         )
 
     def show_initial_state(self):
-        """Při startu načte stav vstupů a zobrazí je do panelů:
+        """Při startu zobrazí výchozí hodnoty enkodérů do matic a morse na 7-seg.
 
-        - první matice (písmeno/číslice sdílené) ukáže výchozí písmeno A,
-        - druhá matice ukáže výchozí symbol,
-        - morse podle fyzického stavu 5 přepínačů na 7-segmentovém panelu.
+        encoder_number_letter se dle polohy encoder_switch zobrazí buď jako
+        číslice na display2, nebo jako písmeno na display3; encoder_glyph ukazuje
+        svůj symbol na první matici a morse podle 5 přepínačů na 7-segmentovce.
         """
-        # První matici sdílí encoder_number a encoder_glyph; při startu
-        # zobraz výchozí písmeno (encoder_glyph zavolej první, ať zůstane
-        # vidět písmeno z encoder_number).
+        self.set_encoder_display("encoder_number_letter", 0)
         self.set_encoder_display("encoder_glyph", 0)
-        self.set_encoder_display("encoder_number", 0)
-        self.set_encoder_display("encoder_letter", 0)
         self.set_display7seg_morse(self.read_morse_code())
 
     def close(self):

@@ -162,6 +162,7 @@ class GameEngine:
             "encoder_number": 0,   # písmeno A-J
             "encoder_glyph": 0,    # číslice 0-9
             "encoder_letter": 0,   # symbol
+            "encoder_number_letter": 0,   # 0-9 a-J
         }
 
         # Barva volená tlačítkem button_color (index do COLORS_EN).
@@ -176,7 +177,7 @@ class GameEngine:
         self._countdown_last_emit = 0.0
 
         # Počáteční zobrazení enkodérů na jejich maticích.
-        for name in ("encoder_number", "encoder_glyph", "encoder_letter"):
+        for name in ("encoder_number_letter", "encoder_glyph"):
             self.pending_events.append(EngineEvent(
                 "encoder_letter", {"encoder": name, "index": 0}
             ))
@@ -279,9 +280,9 @@ class GameEngine:
     # ------------------------------------------------------------------
     # Enkodéry + barva
     # ------------------------------------------------------------------
-    def _encoder_letter(self, encoder_name: str) -> str:
-        idx = self.encoder_positions[encoder_name]
-        return self.encoder_letters[idx]
+    # def _encoder_letter(self, encoder_name: str) -> str:
+    #     idx = self.encoder_positions[encoder_name]
+    #     return self.encoder_letters[idx]
 
     def _rotate_encoder(self, encoder_name: str, event_type: str):
         step = 1 if event_type == "rotated_cw" else -1
