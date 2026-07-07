@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import math
 import time
 import random
 from dataclasses import dataclass
@@ -259,7 +260,8 @@ class CityLeds:
             return
         if status in ("ok", "repaired"):
             self.locked_segments.discard(system_name)
-            self.set_segment(system_name, GREEN, "solid")
+            # self.set_segment(system_name, GREEN, "solid")
+            self.set_segment(system_name, GREEN, "flow", period=1.5)
         else:
             self.locked_segments.add(system_name)
 
@@ -318,6 +320,21 @@ class CityLeds:
             if override is not None:
                 for offset, i in enumerate(range(seg.start, seg.start + seg.length)):
                     self._set_pixel(i, override[offset])
+                continue
+
+            if anim.mode == "flow":
+                # Plynulá zelená vlna běžící přes segment (odemčená oblast).
+                if anim.period <= 0:
+                    for i in range(seg.start, seg.start + seg.length):
+                        self._set_pixel(i, anim.color)
+                else:
+                    phase = (now % anim.period) / anim.period
+                    for offset, i in enumerate(range(seg.start, seg.start + seg.length)):
+                        wave = 0.5 + 0.5 * math.sin(
+                            2 * math.pi * (offset / max(1, seg.length) - phase)
+                        )
+                        b = 0.2 + 0.8 * wave
+                        self._set_pixel(i, scale_color(anim.color, b))
                 continue
 
             if anim.mode == "off":
