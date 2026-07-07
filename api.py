@@ -72,39 +72,37 @@ def create_app(panel: "CityPanel", engine: "GameEngine", engine_lock: threading.
     # ------------------------------------------------------------------
     # WRITE ENDPOINTS
     # ------------------------------------------------------------------
-    @app.post("/api/unlock/<int:day>")
-    def unlock_day(day: int):
-        """Odemkne oblast daného dne (1-5) bez ověřování kódu."""
+    @app.post("/api/unlock/<unit>")
+    def unlock_unit(unit: str):
+        """Odemkne oblast (posta, izs, elektrarna, doprava, radnice) bez ověřování kódu."""
         try:
             with engine_lock:
-                key = engine.unlock_day(day)
+                key = engine.unlock_unit(unit)
                 status = engine.status()
         except ValueError as exc:
             return jsonify(ok=False, error=str(exc)), 400
         return jsonify(
             ok=True,
-            day=day,
             area=key,
             unlocked_areas=status["unlocked_areas"],
             active_area=status["active_area"],
         )
 
-    @app.post("/api/lock/<int:day>")
-    def lock_day(day: int):
-        """Zamkne oblast daného dne (1-5) a volitelně nastaví její kód.
+    @app.post("/api/lock/<unit>")
+    def lock_unit(unit: str):
+        """Zamkne oblast a volitelně nastaví její kód.
 
         Tělo (volitelné): {"morse","color","number","letter","glyph"}.
         """
         body = request.get_json(silent=True) or {}
         try:
             with engine_lock:
-                key = engine.lock_day(day, body or None)
+                key = engine.lock_unit(unit, body or None)
                 status = engine.status()
         except ValueError as exc:
             return jsonify(ok=False, error=str(exc)), 400
         return jsonify(
             ok=True,
-            day=day,
             area=key,
             unlocked_areas=status["unlocked_areas"],
             active_area=status["active_area"],
@@ -118,6 +116,19 @@ def create_app(panel: "CityPanel", engine: "GameEngine", engine_lock: threading.
         try:
             with engine_lock:
                 engine.restart(seconds)
+                status = engine.status()
+        except (ValueError, TypeError) as exc:
+            return jsonify(ok=False, error=str(exc)), 400
+        return jsonify(ok=True, countdown=status["countdown"])
+
+    @app.post("/api/time")
+    def update_time():
+        """Upraví zbývající čas odpočtu bez zamykání oblastí. Tělo: {"seconds": int}."""
+        body = request.get_json(silent=True) or {}
+        seconds = body.get("seconds")
+        try:
+            with engine_lock:
+                engine.set_remaining_seconds(seconds)
                 status = engine.status()
         except (ValueError, TypeError) as exc:
             return jsonify(ok=False, error=str(exc)), 400

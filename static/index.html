@@ -164,7 +164,7 @@
 
       <!-- ODEMČENÍ / ZAMČENÍ -->
       <section class="card">
-        <h2>Oblasti (dny 1–5)</h2>
+        <h2>Oblasti</h2>
         <div class="muted">Odemknout bez ověření kódu</div>
         <div id="unlock-buttons" class="row"></div>
         <div class="muted" style="margin-top: 0.6rem">Zamknout</div>
@@ -181,19 +181,24 @@
         </div>
       </section>
 
+      <!-- ČAS -->
+      <section class="card">
+        <h2>Upravit zbývající čas</h2>
+        <div class="muted">Nastaví zbývající čas bez zamykání oblastí</div>
+        <label for="time-seconds">Zbývající čas (sekundy)</label>
+        <input id="time-seconds" type="number" min="0" value="300" />
+        <div style="margin-top: 0.6rem">
+          <button class="primary" onclick="setTime()">Nastavit čas</button>
+        </div>
+      </section>
+
       <!-- KÓD OBLASTI -->
       <section class="card">
         <h2>Nastavit kód a zamknout</h2>
         <div class="row">
           <div>
-            <label for="code-day">Den</label>
-            <select id="code-day">
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-            </select>
+            <label for="code-unit">Oblast</label>
+            <select id="code-unit"></select>
           </div>
           <div>
             <label for="code-color">Barva</label>
@@ -254,6 +259,7 @@
         "hourglass",
         "music",
       ];
+      const UNITS = ["posta", "izs", "elektrarna", "doprava", "radnice"];
 
       function fill(id, values) {
         const sel = document.getElementById(id);
@@ -263,16 +269,17 @@
       }
       fill("code-color", COLORS);
       fill("code-glyph", GLYPHS);
+      fill("code-unit", UNITS);
 
-      for (let d = 1; d <= 5; d++) {
+      for (const unit of UNITS) {
         const u = document.createElement("button");
-        u.textContent = "Den " + d;
-        u.onclick = () => call("POST", "/api/unlock/" + d);
+        u.textContent = unit;
+        u.onclick = () => call("POST", "/api/unlock/" + unit);
         document.getElementById("unlock-buttons").appendChild(u);
 
         const l = document.createElement("button");
-        l.textContent = "Den " + d;
-        l.onclick = () => call("POST", "/api/lock/" + d);
+        l.textContent = unit;
+        l.onclick = () => call("POST", "/api/lock/" + unit);
         document.getElementById("lock-buttons").appendChild(l);
       }
 
@@ -340,7 +347,7 @@
       }
 
       function lockWithCode() {
-        const day = document.getElementById("code-day").value;
+        const unit = document.getElementById("code-unit").value;
         const body = {
           morse: document.getElementById("code-morse").value,
           color: document.getElementById("code-color").value,
@@ -348,7 +355,15 @@
           letter: document.getElementById("code-letter").value,
           glyph: document.getElementById("code-glyph").value,
         };
-        call("POST", "/api/lock/" + day, body).then(refreshStatus);
+        call("POST", "/api/lock/" + unit, body).then(refreshStatus);
+      }
+
+      function setTime() {
+        const seconds = parseInt(
+          document.getElementById("time-seconds").value,
+          10,
+        );
+        call("POST", "/api/time", { seconds }).then(refreshStatus);
       }
 
       refreshStatus();

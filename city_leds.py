@@ -99,11 +99,11 @@ class CityLeds:
 
         self.add_segment("encoder_color", 0, 4)
         self.add_segment("countdown", 9, 26)
-        self.add_segment("comms", 37, 41) # 1
-        self.add_segment("power", 78, 40) # 2
-        self.add_segment("core", 118, 38)
-        self.add_segment("rescue", 156, 42)
-        self.add_segment("transport", 198, 40) # last
+        self.add_segment("posta", 37, 41) # 1
+        self.add_segment("izs", 78, 40) # 2
+        self.add_segment("elektrarna", 118, 38)
+        self.add_segment("doprava", 156, 42)
+        self.add_segment("radnice",198, 40) # last
 
         # Nic není rezervované (přímý zápis do LED je volný).
         self.reserved_pixels = frozenset()
@@ -112,7 +112,7 @@ class CityLeds:
         self.countdown_fraction: Optional[float] = None
 
         # Městské oblasti: dokud nejsou odemčené, náhodně blikají červeně.
-        self.locked_segments = {"core", "power", "rescue", "comms", "transport"}
+        self.locked_segments = {"radnice", "elektrarna", "izs", "posta", "doprava"}
         self.locked_flicker_period = 0.12   # jak často se přegeneruje vzor (s)
         self._locked_flicker_at = 0.0
         self._locked_pattern: Dict[int, bool] = {}

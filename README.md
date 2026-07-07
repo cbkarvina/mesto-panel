@@ -88,20 +88,21 @@ sudo -E env PATH="$PATH" python3 main.py
 
 `main.py` spouští Flask REST API v pozadí (daemon vlákno, port 5000). Všechen přístup k hardwaru je serializovaný sdíleným zámkem, takže API běží ve stejném procesu jako panelová smyčka.
 
-| Metoda | Endpoint          | Popis                                                                                             |
-| ------ | ----------------- | ------------------------------------------------------------------------------------------------- |
-| GET    | /api/status       | systémy, countdown, delka morseovky                                                               |
-| GET    | /api/inputs       | stav tlačítek/přepínačů + pozice enkodérů                                                         |
-| GET    | /api/leds         | logický stav LED (oblasti, zamčené segmenty, odpočet, barva)                                      |
-| POST   | /api/unlock/{day} | 1-5                                                                                               |
-| POST   | /api/lock/{day}   | 1-5, body: { "morse": "M", "color": "red", "number": 1, "letter": "A", "glyph": SYMBOL_NAMES[0] } |
-| POST   | /api/restart      | body: {countdown: int seconds}                                                                    |
+| Metoda | Endpoint           | Popis                                                                                              |
+| ------ | ------------------ | -------------------------------------------------------------------------------------------------- |
+| GET    | /api/status        | systémy, countdown, delka morseovky                                                                |
+| GET    | /api/inputs        | stav tlačítek/přepínačů + pozice enkodérů                                                          |
+| GET    | /api/leds          | logický stav LED (oblasti, zamčené segmenty, odpočet, barva)                                       |
+| POST   | /api/unlock/{unit} | posta,izs, elektrarna, doprava,radnice                                                             |
+| POST   | /api/lock/{unit}   | unit, body: { "morse": "M", "color": "red", "number": 1, "letter": "A", "glyph": SYMBOL_NAMES[0] } |
+| POST   | /api/restart       | body: {countdown: int seconds}                                                                     |
+| POST   | /api/time          | update remaining seconds within timeout, body: {seconds: int seconds}                              |
 
 ```
 curl http://<rpi>:5000/api/status
-curl -X POST http://<rpi>:5000/api/unlock/1 \
+curl -X POST http://<rpi>:5000/api/unlock/izs \
      -H 'Content-Type: application/json'
-curl -X POST http://<rpi>:5000/api/lock/1 \
+curl -X POST http://<rpi>:5000/api/lock/posta \
      -H 'Content-Type: application/json' \
      -d '{"morse":"M","color":"red","number":1,"letter":"A","glyph":"heart"}'
 curl -X POST http://<rpi>:5000/api/restart \

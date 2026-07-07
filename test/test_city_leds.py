@@ -8,11 +8,11 @@ def main():
 
     try:
         print("Test 1: základní stavy")
-        panel.set_system_status("power", "failure")
-        panel.set_system_status("rescue", "warning")
-        panel.set_system_status("comms", "offline")
-        panel.set_system_status("transport", "ok")
-        panel.set_system_status("core", "locked")
+        panel.set_system_status("elektrarna", "failure")
+        panel.set_system_status("izs", "warning")
+        panel.set_system_status("posta", "offline")
+        panel.set_system_status("doprava", "ok")
+        panel.set_system_status("radnice", "locked")
 
         for level in (0, 20, 40, 60, 80, 100):
             print(f"Power level: {level}")
@@ -23,7 +23,7 @@ def main():
                 time.sleep(0.02)
 
         print("Test 2: repaired / pulse")
-        panel.set_system_status("power", "repaired")
+        panel.set_system_status("elektrarna", "repaired")
         t0 = time.time()
         while time.time() - t0 < 3.0:
             panel.update()

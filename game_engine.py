@@ -18,8 +18,6 @@ SYMBOL_NAMES = [
 UNITS = {
     "posta": {
         "locked": True,
-        "unlockable": True,
-        "day": 0,
         "code": {
             "morse": "M",
             "color": "red",
@@ -30,8 +28,6 @@ UNITS = {
     },
     "izs": {
         "locked": True,
-        "unlockable": False,
-        "day": 1,
         "code": {
             "morse": "F",
             "color": "green",
@@ -42,8 +38,6 @@ UNITS = {
     },
     "elektrarna": {
         "locked": True,
-        "unlockable": False,
-        "day": 2,
         "code": {
             "morse": "F",
             "color": "yellow",
@@ -54,8 +48,6 @@ UNITS = {
     },
     "doprava": {
         "locked": True,
-        "unlockable": False,
-        "day": 3,
         "code": {
             "morse": "F",
             "color": "yellow",
@@ -66,8 +58,6 @@ UNITS = {
     },
     "radnice": {
         "locked": True,
-        "unlockable": False,
-        "day": 4,
         "code": {
             "morse": "F",
             "color": "yellow",
@@ -102,11 +92,11 @@ DAY_ORDER = ["posta", "izs", "elektrarna", "doprava", "radnice"]
 
 # Mapování oblasti na LED segment města (rozsvítí se po odemčení).
 AREA_SEGMENT = {
-    "posta": "comms",
-    "izs": "rescue",
-    "elektrarna": "power",
-    "doprava": "transport",
-    "radnice": "core",
+    "posta": "posta",
+    "izs": "izs",
+    "elektrarna": "elektrarna",
+    "doprava": "doprava",
+    "radnice": "radnice",
 }
  
 
@@ -378,7 +368,7 @@ class GameEngine:
             ))
             self.pending_events.append(EngineEvent(
                 "map_reveal",
-                {"system": segment, "location": key, "day": UNITS[key]["day"]}
+                {"system": segment, "location": key}
             ))
         self.pending_events.append(EngineEvent("sound", {"clip": "success"}))
         self.pending_events.append(EngineEvent(
@@ -434,7 +424,6 @@ class GameEngine:
             "unlocked_areas": list(self.unlocked_areas),
             "areas": {
                 key: {
-                    "day": UNITS[key]["day"],
                     "unlocked": key in self.unlocked_areas,
                 }
                 for key in DAY_ORDER
@@ -454,14 +443,14 @@ class GameEngine:
     # Ovládání přes REST API
     # ------------------------------------------------------------------
     @staticmethod
-    def _day_to_key(day: int) -> str:
-        if not isinstance(day, int) or day < 1 or day > len(DAY_ORDER):
-            raise ValueError(f"day musí být 1-{len(DAY_ORDER)}")
-        return DAY_ORDER[day - 1]
+    def _check_unit(unit: str) -> str:
+        if unit not in UNITS:
+            raise ValueError(f"unit musí být jeden z {', '.join(UNITS)}")
+        return unit
 
-    def unlock_day(self, day: int) -> str:
-        """Odemkne oblast podle dne (1-5) bez ověřování kódu. Vrací klíč oblasti."""
-        key = self._day_to_key(day)
+    def unlock_unit(self, unit: str) -> str:
+        """Odemkne oblast podle klíče bez ověřování kódu. Vrací klíč oblasti."""
+        key = self._check_unit(unit)
         if key not in self.unlocked_areas:
             self._unlock_area(key)
         return key
@@ -492,9 +481,9 @@ class GameEngine:
                 raise ValueError("morse musí být písmeno/číslice z Morse abecedy")
             unit_code["morse"] = morse
 
-    def lock_day(self, day: int, code: dict = None) -> str:
-        """Zamkne oblast podle dne (1-5) a volitelně nastaví její kód."""
-        key = self._day_to_key(day)
+    def lock_unit(self, unit: str, code: dict = None) -> str:
+        """Zamkne oblast podle klíče a volitelně nastaví její kód."""
+        key = self._check_unit(unit)
         if code:
             self.set_area_code(key, code)
         if key in self.unlocked_areas:
@@ -532,4 +521,22 @@ class GameEngine:
         self.start_countdown()
         self.pending_events.append(EngineEvent(
             "message", {"text": "Systém restartován."}
+        ))
+
+    def set_remaining_seconds(self, seconds) -> None:
+        """Upraví zbývající čas běžícího odpočtu, aniž by zamykal oblasti.
+
+        seconds: nový zbývající čas v sekundách (musí být >= 0).
+        """
+        seconds = float(seconds)
+        if seconds < 0:
+            raise ValueError("seconds musí být >= 0")
+        self.dead = False
+        self.countdown_active = True
+        self.countdown_deadline = time.monotonic() + seconds
+        self._countdown_last_emit = 0.0
+        fraction = min(1.0, seconds / self.countdown_duration) if self.countdown_duration else 1.0
+        self.pending_events.append(EngineEvent("central_bar", {"fraction": fraction}))
+        self.pending_events.append(EngineEvent(
+            "message", {"text": f"Zbývající čas nastaven na {int(seconds)} s."}
         ))
