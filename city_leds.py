@@ -67,7 +67,7 @@ class CityLeds:
         self,
         led_count: int = 84,
         pin=board.D18,
-        brightness: float = 0.2,
+        brightness: float = 0.1,
         auto_write: bool = False,
         pixel_order=neopixel.GRB,
     ):
