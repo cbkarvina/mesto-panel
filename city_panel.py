@@ -344,6 +344,8 @@ class CityPanel:
  
 
     def set_encoder_display(self, encoder_name: str, index: int):
+        print(f"set_encoder_display: {encoder_name}")
+        print(f"self.read_encoder_switches(): {self.read_encoder_switches()}")
         if encoder_name == "encoder_number" or (encoder_name == "encoder_number_letter" and self.read_encoder_switches()):
             self.set_display_number(index)
         elif encoder_name == "encoder_glyph":
