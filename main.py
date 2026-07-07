@@ -122,11 +122,7 @@ def main():
                     if ev.type == "system_status":
                         panel.set_system_status(ev.payload["system"], ev.payload["status"])
 
-                    elif ev.type == "encoder_letter":
-                        # panel.set_encoder_letter(
-                        #     ev.payload["encoder"],
-                        #     ev.payload["index"],
-                        # )
+                    elif ev.type in ["encoder_number_letter", "encoder_letter", "encoder_letter"]:
                         panel.set_encoder_display(
                             ev.payload["encoder"],
                             ev.payload["index"],
