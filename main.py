@@ -176,8 +176,8 @@ def main():
                     elif ev.type == "map_reveal":
                         location = ev.payload["location"]
                         print(f"MAP: rozsvěcuji {location}")
-                        # Místo na mapě = segment obnoveného systému (zeleně).
-                        panel.set_indicator(ev.payload["system"], (0, 255, 0), mode="solid")
+                        # Místo na mapě = segment obnoveného systému (zelená vlna).
+                        panel.set_indicator(ev.payload["system"], (0, 255, 0), mode="flow")
 
                     elif ev.type == "display7seg":
                         # 7-segmentovka zobrazuje výhradně morse (tečky/čárky),

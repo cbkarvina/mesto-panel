@@ -103,7 +103,7 @@ class CityLeds:
         self.add_segment("power", 78, 41) # 2
         self.add_segment("core", 119, 38)
         self.add_segment("rescue", 157, 42)
-        self.add_segment("transport", 199, 38)
+        self.add_segment("transport", 199, 40) # last
 
         # Nic není rezervované (přímý zápis do LED je volný).
         self.reserved_pixels = frozenset()
