@@ -42,6 +42,13 @@ class CityPanel:
             "encoder_glyph": 0,
             "encoder_letter": 0,
         }
+        # encoder_number_letter sdílí jeden fyzický enkodér pro číslici i
+        # písmeno. Každý režim má vlastní uloženou pozici, aby po přepnutí
+        # encoder_switch pokračoval tam, kde předtím skončil. _enc_last_raw je
+        # poslední absolutní index z enginu — slouží k odvození směru otočení.
+        self._enc_number_index = 0
+        self._enc_letter_index = 0
+        self._enc_last_raw = 0
         # When set, display1 is cleared once time.monotonic() reaches this value.
         self._display1_clear_at: Optional[float] = None
         # When set, display2 is cleared once time.monotonic() reaches this value.
@@ -166,6 +173,10 @@ class CityPanel:
     # EVENT HANDLING
     # ------------------------------------------------------------------
     def _handle_input_event(self, event: InputEvent):
+        # Přepnutí encoder_switch okamžitě překreslí aktivní matici na její
+        # uloženou hodnotu (číslici na display2 / písmeno na display3).
+        if event.name == "encoder_switch" and event.event_type == "changed":
+            self.refresh_encoder_display()
         if self._event_callback:
             self._event_callback(event)
 
@@ -349,13 +360,32 @@ class CityPanel:
         # přepínač encoder_switch volí, kam se hodnota zobrazí:
         #   sepnuto (ON)    -> číslice 0-9 na display2,
         #   rozepnuto (OFF) -> písmeno A-J na display3.
+        # Každý režim má vlastní pozici; z absolutního indexu enginu odvodíme
+        # jen směr otočení (±1) a aplikujeme ho na aktivní režim, aby ten
+        # druhý zůstal beze změny.
         if encoder_name == "encoder_number_letter":
+            delta = (index - self._enc_last_raw) % 10
+            if delta > 5:
+                delta -= 10
+            self._enc_last_raw = index
             if self.read_encoder_switches():
-                self.set_display2_number(index)
+                self._enc_number_index = (self._enc_number_index + delta) % 10
             else:
-                self.set_display3_letter(index)
+                self._enc_letter_index = (self._enc_letter_index + delta) % 10
+            self.refresh_encoder_display()
         elif encoder_name == "encoder_glyph":
             self.set_display_glyph(index)
+
+    def refresh_encoder_display(self):
+        """Zobrazí uloženou hodnotu aktivního režimu encoder_number_letter.
+
+        Podle polohy encoder_switch vykreslí buď číslici na display2, nebo
+        písmeno na display3 — bez změny druhého režimu.
+        """
+        if self.read_encoder_switches():
+            self.set_display2_number(self._enc_number_index)
+        else:
+            self.set_display3_letter(self._enc_letter_index)
 
     def set_display7seg_text(self, text: str):
         if self.display7seg is None:
