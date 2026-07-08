@@ -53,20 +53,46 @@ def _buzzer_close():
         _buzzer_pwm = None
 
 
-def play_morse(panel, morse: str):
-    """Přehraje Morse řetězec (písmena oddělená mezerou) na bzučáku.
+def _buzzer_beep(duration: float, freq: float = None):
+    """Krátké pípnutí bzučáku, volitelně na jiné frekvenci než BUZZER_FREQ."""
+    if _buzzer_pwm is None:
+        return
+    if freq is not None:
+        _buzzer_pwm.ChangeFrequency(freq)
+    _buzzer_set(True)
+    time.sleep(duration)
+    _buzzer_set(False)
+    if freq is not None:
+        _buzzer_pwm.ChangeFrequency(BUZZER_FREQ)
 
-    Komunikační LED se pro Morse nepoužívá — slouží jen jako stavový
-    indikátor (vyřešeno / nevyřešeno).
-    """
-    for token in morse.split(" "):
-        for symbol in token:
-            duration = MORSE_DASH if symbol == "-" else MORSE_DOT
-            _buzzer_set(True)
-            time.sleep(duration)
-            _buzzer_set(False)
-            time.sleep(MORSE_GAP)
-        time.sleep(MORSE_LETTER_GAP)
+
+def _buzzer_error():
+    """Bzučák: 3x krátké pípnutí na nízké frekvenci (nesprávný kód)."""
+    for _ in range(3):
+        _buzzer_beep(0.12, freq=300)
+        time.sleep(0.08)
+
+
+def _buzzer_success():
+    """Bzučák: vzestupná melodie (úspěšné odemčení / finále)."""
+    for freq in (523, 659, 784, 1046):
+        _buzzer_beep(0.09, freq=freq)
+
+
+# def play_morse(panel, morse: str):
+#     """Přehraje Morse řetězec (písmena oddělená mezerou) na bzučáku.
+
+#     Komunikační LED se pro Morse nepoužívá — slouží jen jako stavový
+#     indikátor (vyřešeno / nevyřešeno).
+#     """
+#     for token in morse.split(" "):
+#         for symbol in token:
+#             duration = MORSE_DASH if symbol == "-" else MORSE_DOT
+#             _buzzer_set(True)
+#             time.sleep(duration)
+#             _buzzer_set(False)
+#             time.sleep(MORSE_GAP)
+#         time.sleep(MORSE_LETTER_GAP)
 
 
 def main():
@@ -171,8 +197,14 @@ def main():
                             leds.set_central_bar(ev.payload.get("fraction"))
 
                     elif ev.type == "sound":
-                        # Placeholder pro TTS / přednahrané zvuky.
-                        print(f"SOUND: {ev.payload['clip']}")
+                        # Placeholder pro TTS / přednahrané zvuky; bzučák signalizuje
+                        # aspoň chybu/úspěch, dokud nejsou k dispozici skutečné zvuky.
+                        clip = ev.payload["clip"]
+                        print(f"SOUND: {clip}")
+                        if clip == "error":
+                            _buzzer_error()
+                        elif clip in ("success", "finale"):
+                            _buzzer_success()
 
                     elif ev.type == "animation":
                         kind = ev.payload.get("kind")
