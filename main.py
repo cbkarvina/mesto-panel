@@ -11,7 +11,7 @@ from api import start_api_thread
 
 
 # Bzučák pro modul KOMUNIKACE — BCM pin (uprav podle zapojení). None = bez bzučáku.
-BUZZER_PIN = None  # např. 16
+BUZZER_PIN = 12  # např. 16
 
 # Časování Morse přehrávání (sekundy).
 MORSE_DOT = 0.15
