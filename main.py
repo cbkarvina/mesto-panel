@@ -11,7 +11,9 @@ from api import start_api_thread
 
 
 # Bzučák pro modul KOMUNIKACE — BCM pin (uprav podle zapojení). None = bez bzučáku.
+# Pasivní bzučák: řízený přes PWM (viz test/test_buzzer.py).
 BUZZER_PIN = 12  # např. 16
+BUZZER_FREQ = 1000  # Hz, tón přehrávaný pro Morse
 
 # Časování Morse přehrávání (sekundy).
 MORSE_DOT = 0.15
@@ -19,27 +21,36 @@ MORSE_DASH = 0.45
 MORSE_GAP = 0.15
 MORSE_LETTER_GAP = 0.45
 
-_buzzer = None
+_buzzer_pwm = None
 
 
 def _init_buzzer():
-    """Připraví bzučák na GPIO, pokud je nastaven BUZZER_PIN a běžíme na RPi."""
-    global _buzzer
+    """Připraví PWM bzučák na GPIO, pokud je nastaven BUZZER_PIN a běžíme na RPi."""
+    global _buzzer_pwm
     if BUZZER_PIN is None:
         return
     try:
         import RPi.GPIO as GPIO
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(BUZZER_PIN, GPIO.OUT, initial=GPIO.LOW)
-        _buzzer = GPIO
+        GPIO.setup(BUZZER_PIN, GPIO.OUT)
+        _buzzer_pwm = GPIO.PWM(BUZZER_PIN, BUZZER_FREQ)
+        _buzzer_pwm.start(0)
     except Exception as exc:
         print(f"Buzzer disabled: {exc}")
-        _buzzer = None
+        _buzzer_pwm = None
 
 
 def _buzzer_set(on: bool):
-    if _buzzer is not None:
-        _buzzer.output(BUZZER_PIN, _buzzer.HIGH if on else _buzzer.LOW)
+    if _buzzer_pwm is not None:
+        _buzzer_pwm.ChangeDutyCycle(50 if on else 0)
+
+
+def _buzzer_close():
+    """Zastaví PWM bzučáku (voláno při vypnutí panelu)."""
+    global _buzzer_pwm
+    if _buzzer_pwm is not None:
+        _buzzer_pwm.stop()
+        _buzzer_pwm = None
 
 
 def play_morse(panel, morse: str):
@@ -194,6 +205,7 @@ def main():
 
     finally:
         print("Closing panel...")
+        _buzzer_close()
         panel.close()
 
 
