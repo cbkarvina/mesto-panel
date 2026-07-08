@@ -374,7 +374,9 @@ class GameEngine:
         self.pending_events.append(EngineEvent(
             "animation", {"kind": "success", "system": segment}
         ))
-        self.pending_events.append(EngineEvent("display_anim", {"kind": "unlock"}))
+        # self.pending_events.append(EngineEvent("display_anim", {"kind": "unlock"}))
+        self.pending_events.append(EngineEvent("sound", {"clip": "finale"}))
+        self.pending_events.append(EngineEvent("animation", {"kind": "finale"}))
         self._check_finale()
 
     def _check_finale(self):
@@ -384,8 +386,8 @@ class GameEngine:
         if not all(k in self.unlocked_areas for k in DAY_ORDER):
             return
         self._finale_done = True
-        self.pending_events.append(EngineEvent("sound", {"clip": "finale"}))
-        self.pending_events.append(EngineEvent("animation", {"kind": "finale"}))
+        # self.pending_events.append(EngineEvent("sound", {"clip": "finale"}))
+        # self.pending_events.append(EngineEvent("animation", {"kind": "finale"}))
 
     # ------------------------------------------------------------------
     # Morse náhled
