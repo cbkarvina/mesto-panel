@@ -25,8 +25,8 @@
 | 25  | GND    | -          | 26  | GPIO7  | -           |
 | 27  | GPIO0  | -          | 28  | GPIO1  | -           |
 | 29  | GPIO5  | -          | 30  | GND    | -           |
-| 31  | GPIO6  | -          | 32  | GPIO12 | -           |
-| 33  | GPIO19 | -          | 34  | GND    | -           |
+| 31  | GPIO6  | -          | 32  | GPIO12 | Buzzer +    |
+| 33  | GPIO19 | -          | 34  | GND    | Buzzer -    |
 | 35  | GPIO19 | -          | 36  | GPIO16 | -           |
 | 37  | GPIO26 | -          | 38  | GPIO20 | -           |
 | 39  | GND    | -          | 40  | GPIO21 | -           |
@@ -50,6 +50,8 @@ sudo -E env PATH=$PATH python3 test_led2.py - not OK
 ## Test LED - single wire WS2812B protocol via 74AHCT125
 
 see https://learn.adafruit.com/neopixels-on-raspberry-pi
+,
+https://core-electronics.com.au/guides/raspberry-pi/fully-addressable-rgb-raspberry-pi/
 
 ```
 vi /boot/config.txt (boot/firmware/config)
