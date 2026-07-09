@@ -121,6 +121,9 @@ COUNTDOWN_BAR_EMIT_INTERVAL = 0.5  # jak často se posílá stav pruhu (s)
 # Chybové hlášení při neplatném řídicím kódu.
 ERROR_INVALID_CODE = "Neplatný řídicí kód."
 
+# Statické heslo pro ověření zápisových (POST) volání REST API.
+API_PASSWORD = "tm"
+
 class GameEngine:
     """Herní logika 'Tajemného města'.
 
@@ -134,6 +137,9 @@ class GameEngine:
     def __init__(self):
         self.pending_events: List[EngineEvent] = []
         self._finale_done = False
+
+        # Heslo pro ověření zápisových API volání (viz api.py).
+        self.api_password = API_PASSWORD
 
         # Odemčené oblasti města (v pořadí DAY_ORDER).
         self.unlocked_areas: List[str] = []
@@ -415,6 +421,10 @@ class GameEngine:
     # ------------------------------------------------------------------
     # Stav pro REST API
     # ------------------------------------------------------------------
+    def check_api_password(self, password) -> bool:
+        """Ověří heslo pro zápisová (POST) API volání."""
+        return password is not None and str(password) == self.api_password
+
     def countdown_remaining(self) -> float:
         if not self.countdown_active:
             return 0.0

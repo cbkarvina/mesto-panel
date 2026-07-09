@@ -90,26 +90,29 @@ sudo -E env PATH="$PATH" python3 main.py
 
 `main.py` spouští Flask REST API v pozadí (daemon vlákno, port 5000). Všechen přístup k hardwaru je serializovaný sdíleným zámkem, takže API běží ve stejném procesu jako panelová smyčka.
 
-| Metoda | Endpoint           | Popis                                                                                              |
-| ------ | ------------------ | -------------------------------------------------------------------------------------------------- |
-| GET    | /api/status        | systémy, countdown, delka morseovky                                                                |
-| GET    | /api/inputs        | stav tlačítek/přepínačů + pozice enkodérů                                                          |
-| GET    | /api/leds          | logický stav LED (oblasti, zamčené segmenty, odpočet, barva)                                       |
-| POST   | /api/unlock/{unit} | posta,izs, elektrarna, doprava,radnice                                                             |
-| POST   | /api/lock/{unit}   | unit, body: { "morse": "M", "color": "red", "number": 1, "letter": "A", "glyph": SYMBOL_NAMES[0] } |
-| POST   | /api/restart       | body: {countdown: int seconds}                                                                     |
-| POST   | /api/time          | update remaining seconds within timeout, body: {seconds: int seconds}                              |
+Všechna POST volání vyžadují statické heslo (`GameEngine.api_password` v `game_engine.py`), a to buď v JSON těle (`"password"`), v hlavičce `X-API-Password`, nebo jako query parametr `?password=`.
+
+| Metoda | Endpoint           | Popis                                                                                                                 |
+| ------ | ------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| GET    | /api/status        | systémy, countdown, delka morseovky                                                                                   |
+| GET    | /api/inputs        | stav tlačítek/přepínačů + pozice enkodérů                                                                             |
+| GET    | /api/leds          | logický stav LED (oblasti, zamčené segmenty, odpočet, barva)                                                          |
+| POST   | /api/unlock/{unit} | posta,izs, elektrarna, doprava,radnice — vyžaduje heslo                                                               |
+| POST   | /api/lock/{unit}   | unit, body: { "password": "...", "morse": "M", "color": "red", "number": 1, "letter": "A", "glyph": SYMBOL_NAMES[0] } |
+| POST   | /api/restart       | body: {"password": "...", "countdown": int seconds}                                                                   |
+| POST   | /api/time          | update remaining seconds within timeout, body: {"password": "...", "seconds": int seconds}                            |
 
 ```
 curl http://<rpi>:5000/api/status
 curl -X POST http://<rpi>:5000/api/unlock/izs \
-     -H 'Content-Type: application/json'
+     -H 'Content-Type: application/json' \
+     -d '{"password":"password"}'
 curl -X POST http://<rpi>:5000/api/lock/posta \
      -H 'Content-Type: application/json' \
-     -d '{"morse":"M","color":"red","number":1,"letter":"A","glyph":"heart"}'
+     -d '{"password":"password","morse":"M","color":"red","number":1,"letter":"A","glyph":"heart"}'
 curl -X POST http://<rpi>:5000/api/restart \
      -H 'Content-Type: application/json' \
-     -d '{"countdown":1800}'
+     -d '{"password":"password","countdown":1800}'
 ```
 
 # Systemd (běh na pozadí)

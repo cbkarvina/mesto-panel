@@ -10,6 +10,7 @@ polls inputs and updates the displays/LEDs.
 """
 import time
 import threading
+from functools import wraps
 from typing import Dict
 
 from flask import Flask, jsonify, request
@@ -20,6 +21,25 @@ from city_panel import CityPanel
 
 def create_app(panel: "CityPanel", engine: "GameEngine", engine_lock: threading.Lock) -> Flask:
     app = Flask(__name__, static_folder="static", static_url_path="/static")
+
+    def require_password(view):
+        """Ochrana zápisových (POST) endpointů statickým heslem (GameEngine.api_password).
+
+        Heslo se hledá v JSON těle ("password"), v hlavičce X-API-Password
+        nebo v query stringu (?password=...), v tomto pořadí.
+        """
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            body = request.get_json(silent=True) or {}
+            password = (
+                body.get("password")
+                or request.headers.get("X-API-Password")
+                or request.args.get("password")
+            )
+            if not engine.check_api_password(password):
+                return jsonify(ok=False, error="Neplatné nebo chybějící heslo."), 401
+            return view(*args, **kwargs)
+        return wrapper
 
     # ------------------------------------------------------------------
     # WEB UI
@@ -73,6 +93,7 @@ def create_app(panel: "CityPanel", engine: "GameEngine", engine_lock: threading.
     # WRITE ENDPOINTS
     # ------------------------------------------------------------------
     @app.post("/api/unlock/<unit>")
+    @require_password
     def unlock_unit(unit: str):
         """Odemkne oblast (posta, izs, elektrarna, doprava, radnice) bez ověřování kódu."""
         try:
@@ -89,6 +110,7 @@ def create_app(panel: "CityPanel", engine: "GameEngine", engine_lock: threading.
         )
 
     @app.post("/api/lock/<unit>")
+    @require_password
     def lock_unit(unit: str):
         """Zamkne oblast a volitelně nastaví její kód.
 
@@ -109,6 +131,7 @@ def create_app(panel: "CityPanel", engine: "GameEngine", engine_lock: threading.
         )
 
     @app.post("/api/restart")
+    @require_password
     def restart():
         """Restart hry. Tělo (volitelné): {"countdown": int sekund}."""
         body = request.get_json(silent=True) or {}
@@ -122,6 +145,7 @@ def create_app(panel: "CityPanel", engine: "GameEngine", engine_lock: threading.
         return jsonify(ok=True, countdown=status["countdown"])
 
     @app.post("/api/time")
+    @require_password
     def update_time():
         """Upraví zbývající čas odpočtu bez zamykání oblastí. Tělo: {"seconds": int}."""
         body = request.get_json(silent=True) or {}
