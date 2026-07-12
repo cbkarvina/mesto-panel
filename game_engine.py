@@ -359,6 +359,22 @@ class GameEngine:
             return
 
         code = UNITS[target]["code"]
+        submitted = {
+            "letter": ENCODER_LETTERS[self._enc_letter_index],
+            "number": self._enc_number_index,
+            "glyph": SYMBOL_NAMES[self.encoder_positions["encoder_glyph"]],
+            "color": self.current_color(),
+            "morse": self._current_morse(),
+        }
+        expected = {
+            "letter": str(code["letter"]).upper(),
+            "number": int(code["number"]) % 10,
+            "glyph": str(code["glyph"]).lower(),
+            "color": str(code["color"]).lower(),
+            "morse": MORSE_ALPHABET.get(str(code["morse"]).upper(), "?"),
+        }
+        print(f"UNLOCK {target}: submitted={submitted} expected={expected}")
+
         checks = {
             "letter": self._enc_letter_index
                       == ENCODER_LETTERS.index(str(code["letter"]).upper()),
