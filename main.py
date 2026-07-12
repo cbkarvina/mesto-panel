@@ -9,6 +9,14 @@ from game_engine import GameEngine
 from mcp23017 import MCP23017Error
 from api import start_api_thread
 
+# Journald captures stdout/stderr as a pipe, not a tty, so Python fully
+# block-buffers print() by default — lines can sit unflushed for a long time
+# on a mostly-idle panel loop. PYTHONUNBUFFERED=1 in the systemd unit should
+# cover this, but reconfigure here too so logging works even if that env var
+# doesn't reach the interpreter.
+sys.stdout.reconfigure(line_buffering=True)
+sys.stderr.reconfigure(line_buffering=True)
+
 
 # Bzučák pro modul KOMUNIKACE — BCM pin (uprav podle zapojení). None = bez bzučáku.
 # Pasivní bzučák: řízený přes PWM (viz test/test_buzzer.py).
