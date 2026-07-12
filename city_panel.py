@@ -415,34 +415,34 @@ class CityPanel:
         if self.display7seg is not None:
             self.display7seg.set_text(self._locked_message)
 
-    def play_unlock_anim(self):
-        """Jednorázová oslavná animace odemčení na obou maticích i 7-seg panelu."""
-        # Ukonči případné blikání zámku — panel je odemčen.
-        self._locked_blink = False
-        self._locked_toggle_at = None
-        # Zruš ostatní 7-seg stavy, aby animace měla displej pro sebe.
-        self._display7seg_revert_at = None
-        self._blink_deadline = None
-        self._blink_toggle_at = None
-        self._anim7seg_frames = None
-        self._anim7seg_next_at = None
+    # def play_unlock_anim(self):
+    #     """Jednorázová oslavná animace odemčení na obou maticích i 7-seg panelu."""
+    #     # Ukonči případné blikání zámku — panel je odemčen.
+    #     self._locked_blink = False
+    #     self._locked_toggle_at = None
+    #     # Zruš ostatní 7-seg stavy, aby animace měla displej pro sebe.
+    #     self._display7seg_revert_at = None
+    #     self._blink_deadline = None
+    #     self._blink_toggle_at = None
+    #     self._anim7seg_frames = None
+    #     self._anim7seg_next_at = None
 
-        frames = []
-        # Fáze 1: matice se plní shora dolů, po 7-seg přejíždí pomlčka.
-        for i in range(8):
-            rows = [0xFF if r <= i else 0x00 for r in range(8)]
-            seg = "".join("-" if j == i else " " for j in range(8))
-            frames.append((rows, seg))
-        # Fáze 2: bliknutí, pak úsměv na maticích a "OPEN" na 7-seg.
-        smiley = list(SYMBOLS[1])
-        frames.append(([0xFF] * 8, "  OPEN  "))
-        frames.append((smiley, "  OPEN  "))
-        frames.append((smiley, "  OPEN  "))
+    #     frames = []
+    #     # Fáze 1: matice se plní shora dolů, po 7-seg přejíždí pomlčka.
+    #     for i in range(8):
+    #         rows = [0xFF if r <= i else 0x00 for r in range(8)]
+    #         seg = "".join("-" if j == i else " " for j in range(8))
+    #         frames.append((rows, seg))
+    #     # Fáze 2: bliknutí, pak úsměv na maticích a "OPEN" na 7-seg.
+    #     smiley = list(SYMBOLS[1])
+    #     frames.append(([0xFF] * 8, "  OPEN  "))
+    #     frames.append((smiley, "  OPEN  "))
+    #     frames.append((smiley, "  OPEN  "))
 
-        self._unlock_anim_frames = frames
-        self._unlock_anim_index = 0
-        self._unlock_anim_next_at = time.monotonic() + self._unlock_anim_interval
-        self._apply_unlock_frame(0)
+    #     self._unlock_anim_frames = frames
+    #     self._unlock_anim_index = 0
+    #     self._unlock_anim_next_at = time.monotonic() + self._unlock_anim_interval
+    #     self._apply_unlock_frame(0)
 
     def _apply_unlock_frame(self, index: int):
         rows, seg = self._unlock_anim_frames[index]

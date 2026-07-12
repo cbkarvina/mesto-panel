@@ -99,11 +99,11 @@ class CityLeds:
 
         self.add_segment("encoder_color", 0, 4)
         self.add_segment("countdown", 9, 26)
-        self.add_segment("posta", 37, 41) # 1
+        self.add_segment("radnice", 37, 41) # 1
         self.add_segment("izs", 78, 38) # 2
-        self.add_segment("elektrarna", 116, 38)
+        self.add_segment("posta", 116, 38)
         self.add_segment("doprava", 156, 42)
-        self.add_segment("radnice",198, 40) # last
+        self.add_segment("elektrarna", 198, 40) # last
 
         # Nic není rezervované (přímý zápis do LED je volný).
         self.reserved_pixels = frozenset()

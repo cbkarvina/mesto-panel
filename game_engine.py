@@ -154,12 +154,21 @@ class GameEngine:
 
         # Tři kombinační enkodéry (index 0-9).
         self.encoder_letters = list("ABCDEFGHIJ")
+        # Surové absolutní pozice fyzických enkodérů — používají se jen pro
+        # vykreslení matic (main.py -> panel.set_encoder_display), který si
+        # sám dopočítá směr otočení z absolutního indexu.
         self.encoder_positions = {
-            "encoder_number": 0,   # písmeno A-J
-            "encoder_glyph": 0,    # číslice 0-9
-            "encoder_letter": 0,   # symbol
-            "encoder_number_letter": 0,   # 0-9 a-J
+            "encoder_glyph": 0,           # symbol (glyph)
+            "encoder_number_letter": 0,   # sdílený enkodér, surová pozice 0-9
         }
+        # encoder_number_letter sdílí jeden fyzický enkodér pro číslici i
+        # písmeno; poloha encoder_switch volí aktivní režim. Každý režim má
+        # vlastní pozici, aby po přepnutí pokračoval tam, kde skončil — stejná
+        # logika jako CityPanel._enc_number_index / _enc_letter_index, ale
+        # tady se používá k ověření odemykacího kódu, ne k vykreslení.
+        self._enc_number_index = 0
+        self._enc_letter_index = 0
+        self.encoder_switch_active = False
 
         # Barva volená tlačítkem button_color (index do COLORS_EN).
         self.color_index = 0
@@ -178,8 +187,9 @@ class GameEngine:
                 "encoder_letter", {"encoder": name, "index": 0}
             ))
 
-        # Spusť globální odpočet hned při vytvoření enginu (start systému).
-        self.start_countdown()
+        # Odpočet se nespouští automaticky při startu — čeká na explicitní
+        # spuštění (např. /api/restart), aby panel po zapnutí nezačal
+        # odpočítávat, dokud to obsluha nepotvrdí.
 
     # ------------------------------------------------------------------
     # Odpočet
@@ -196,18 +206,20 @@ class GameEngine:
             "message", {"text": "Systém spuštěn. Zbývá 30 minut."}
         ))
 
-    def sync_initial_state(self, switch_states=None):
-        """Načte počáteční stav 5 morse přepínačů do vnitřního stavu enginu.
+    def sync_initial_state(self, switch_states=None, encoder_switch_active=None):
+        """Načte počáteční stav 5 morse přepínačů a encoder_switch do enginu.
 
         Volá se jednou při startu (po inicializaci panelu). Zobrazení do panelů
         obstará CityPanel.show_initial_state(); zde jen srovnáme vnitřní stav
-        morse s fyzickými přepínači.
+        s fyzickými přepínači.
         """
         if switch_states:
             for i in range(len(self.morse_symbols)):
                 self.morse_symbols[i] = bool(
                     switch_states.get(f"morse_pos_{i + 1}", False)
                 )
+        if encoder_switch_active is not None:
+            self.encoder_switch_active = bool(encoder_switch_active)
         # Zobraz výchozí barvu na prvních 5 LED (indikátor button_color).
         color = self.current_color()
         self.pending_events.append(EngineEvent(
@@ -224,6 +236,9 @@ class GameEngine:
 
         if name in self.encoder_positions and event_type in ("rotated_cw", "rotated_ccw"):
             self._rotate_encoder(name, event_type)
+
+        elif name == "encoder_switch" and event_type == "changed":
+            self.encoder_switch_active = is_active
 
         elif name == "button_color" and event_type == "pressed":
             self._cycle_color()
@@ -286,6 +301,14 @@ class GameEngine:
         self.encoder_positions[encoder_name] = (
             self.encoder_positions[encoder_name] + step
         ) % count
+        if encoder_name == "encoder_number_letter":
+            # Otočení sdíleného enkodéru ovlivní jen aktivní režim (dle
+            # encoder_switch) — druhý zůstává beze změny, viz komentář u
+            # _enc_number_index / _enc_letter_index výše.
+            if self.encoder_switch_active:
+                self._enc_number_index = (self._enc_number_index + step) % count
+            else:
+                self._enc_letter_index = (self._enc_letter_index + step) % count
         self.pending_events.append(EngineEvent(
             "encoder_letter",
             {"encoder": encoder_name, "index": self.encoder_positions[encoder_name]}
@@ -337,11 +360,11 @@ class GameEngine:
 
         code = UNITS[target]["code"]
         checks = {
-            "letter": self.encoder_positions["encoder_number"]
+            "letter": self._enc_letter_index
                       == ENCODER_LETTERS.index(str(code["letter"]).upper()),
-            "number": self.encoder_positions["encoder_glyph"]
+            "number": self._enc_number_index
                       == int(code["number"]) % 10,
-            "glyph": self.encoder_positions["encoder_letter"]
+            "glyph": self.encoder_positions["encoder_glyph"]
                      == SYMBOL_NAMES.index(str(code["glyph"]).lower()),
             "color": self.current_color() == str(code["color"]).lower(),
             "morse": self._morse_matches(code["morse"]),
@@ -440,7 +463,11 @@ class GameEngine:
                 }
                 for key in DAY_ORDER
             },
-            "encoders": dict(self.encoder_positions),
+            "encoders": {
+                "number": self._enc_number_index,
+                "letter": self._enc_letter_index,
+                "glyph": self.encoder_positions["encoder_glyph"],
+            },
             "color": self.current_color(),
             "morse": self._current_morse(),
             "morse_length": self.morse_length,

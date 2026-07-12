@@ -122,7 +122,9 @@ def main():
 
     # Načti počáteční stav vstupů a zobraz ho do panelů: každý enkodér svou
     # výchozí hodnotu na vlastní matici a morse podle 5 přepínačů na 7-segmentovku.
-    engine.sync_initial_state(panel.read_morse_switches())
+    engine.sync_initial_state(
+        panel.read_morse_switches(), panel.read_encoder_switches()
+    )
     panel.show_initial_state()
 
     # Start the REST API in a background daemon thread (same process).
