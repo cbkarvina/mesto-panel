@@ -88,14 +88,14 @@ ENCODER_LETTERS = "ABCDEFGHIJ"
 
 # Pořadí odemykání oblastí — jeden pracovní den = jedna oblast.
 # Pondělí→pošta, úterý→IZS, středa→elektrárna, čtvrtek→doprava, pátek→radnice.
-DAY_ORDER = ["posta", "izs", "elektrarna", "doprava", "radnice"]
+DAY_ORDER = ["posta", "doprava", "izs", "elektrarna", "radnice"]
 
 # Mapování oblasti na LED segment města (rozsvítí se po odemčení).
 AREA_SEGMENT = {
     "posta": "posta",
+    "doprava": "doprava",
     "izs": "izs",
     "elektrarna": "elektrarna",
-    "doprava": "doprava",
     "radnice": "radnice",
 }
  
