@@ -44,11 +44,11 @@ class CityPanel:
         }
         # encoder_number_letter sdílí jeden fyzický enkodér pro číslici i
         # písmeno. Každý režim má vlastní uloženou pozici, aby po přepnutí
-        # encoder_switch pokračoval tam, kde předtím skončil. _enc_last_raw je
-        # poslední absolutní index z enginu — slouží k odvození směru otočení.
+        # encoder_switch pokračoval tam, kde předtím skončil. Hodnoty sem
+        # posílá engine (viz set_encoder_display) — engine je jediný zdroj
+        # pravdy, panel si je znovu neodvozuje.
         self._enc_number_index = 0
         self._enc_letter_index = 0
-        self._enc_last_raw = 0
         # When set, display1 is cleared once time.monotonic() reaches this value.
         self._display1_clear_at: Optional[float] = None
         # When set, display2 is cleared once time.monotonic() reaches this value.
@@ -355,23 +355,20 @@ class CityPanel:
             return
         self.display3.set_index_letter(index)
 
-    def set_encoder_display(self, encoder_name: str, index: int):
+    def set_encoder_display(self, encoder_name: str, index: int, mode: Optional[str] = None, value: Optional[int] = None):
         # encoder_number_letter sdílí jeden enkodér pro číslice i písmena;
         # přepínač encoder_switch volí, kam se hodnota zobrazí:
         #   sepnuto (ON)    -> číslice 0-9 na display2,
         #   rozepnuto (OFF) -> písmeno A-J na display3.
-        # Každý režim má vlastní pozici; z absolutního indexu enginu odvodíme
-        # jen směr otočení (±1) a aplikujeme ho na aktivní režim, aby ten
-        # druhý zůstal beze změny.
+        # Engine je jediný zdroj pravdy pro to, kterému režimu otočení patřilo
+        # a jaká je jeho výsledná hodnota (mode/value) — panel si to dřív
+        # odvozoval znovu sám z vlastního čtení encoder_switch, což se mohlo
+        # rozejít od hodnoty, kterou engine skutečně ověřuje při odemykání.
         if encoder_name == "encoder_number_letter":
-            delta = (index - self._enc_last_raw) % 10
-            if delta > 5:
-                delta -= 10
-            self._enc_last_raw = index
-            if self.read_encoder_switches():
-                self._enc_number_index = (self._enc_number_index + delta) % 10
-            else:
-                self._enc_letter_index = (self._enc_letter_index + delta) % 10
+            if mode == "number":
+                self._enc_number_index = value
+            elif mode == "letter":
+                self._enc_letter_index = value
             self.refresh_encoder_display()
         elif encoder_name == "encoder_glyph":
             self.set_display_glyph(index)

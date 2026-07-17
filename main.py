@@ -171,6 +171,8 @@ def main():
                         panel.set_encoder_display(
                             ev.payload["encoder"],
                             ev.payload["index"],
+                            mode=ev.payload.get("mode"),
+                            value=ev.payload.get("value"),
                         )
 
                     elif ev.type == "color_select":

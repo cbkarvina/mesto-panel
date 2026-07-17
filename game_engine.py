@@ -182,10 +182,18 @@ class GameEngine:
         self._countdown_last_emit = 0.0
 
         # Počáteční zobrazení enkodérů na jejich maticích.
-        for name in ("encoder_number_letter", "encoder_glyph"):
-            self.pending_events.append(EngineEvent(
-                "encoder_letter", {"encoder": name, "index": 0}
-            ))
+        self.pending_events.append(EngineEvent(
+            "encoder_letter",
+            {
+                "encoder": "encoder_number_letter",
+                "index": 0,
+                "mode": "number" if self.encoder_switch_active else "letter",
+                "value": 0,
+            }
+        ))
+        self.pending_events.append(EngineEvent(
+            "encoder_letter", {"encoder": "encoder_glyph", "index": 0}
+        ))
 
         # Odpočet se nespouští automaticky při startu — čeká na explicitní
         # spuštění (např. /api/restart), aby panel po zapnutí nezačal
@@ -309,6 +317,25 @@ class GameEngine:
                 self._enc_number_index = (self._enc_number_index + step) % count
             else:
                 self._enc_letter_index = (self._enc_letter_index + step) % count
+            # Panelu pošleme rovnou výslednou hodnotu aktivního režimu (mode +
+            # value) — engine je jediný zdroj pravdy pro to, kam otočení
+            # patří. Kdyby si panel odvozoval mode/value znovu sám (např. z
+            # vlastního čtení encoder_switch), mohl by se při jakékoli
+            # časové neshodě rozjet od skutečné hodnoty, kterou pak ověřuje
+            # _try_unlock — displej by pak ukazoval jiný kód, než jaký se
+            # skutečně vyhodnocuje při odemykání.
+            mode = "number" if self.encoder_switch_active else "letter"
+            value = self._enc_number_index if self.encoder_switch_active else self._enc_letter_index
+            self.pending_events.append(EngineEvent(
+                "encoder_letter",
+                {
+                    "encoder": encoder_name,
+                    "index": self.encoder_positions[encoder_name],
+                    "mode": mode,
+                    "value": value,
+                }
+            ))
+            return
         self.pending_events.append(EngineEvent(
             "encoder_letter",
             {"encoder": encoder_name, "index": self.encoder_positions[encoder_name]}
